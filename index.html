@@ -249,23 +249,29 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 
 // ── STATE ──
 const S = { tournaments: [], activeTid: null, view: 'list' }
+let _saveTimer = null
 
 // ── DB ──
 const dot = document.getElementById('status-dot')
-async function sv() {
-  try {
-    dot.className = 'status-dot loading'
-    const { error } = await db
-      .from('tournaments')
-      .upsert({ id: 'main', data: S, updated_at: new Date().toISOString() })
-    if (error) throw error
-    dot.className = 'status-dot ok'
-  } catch (e) {
-    console.error('Save failed:', e)
-    dot.className = 'status-dot err'
-  }
-  // Always save locally as backup
+function sv() {
+  // Save to localStorage instantly (zero delay, works offline)
   try { localStorage.setItem('pitchside', JSON.stringify(S)) } catch(e) {}
+
+  // Debounce the Supabase save — wait until user stops acting
+  clearTimeout(_saveTimer)
+  _saveTimer = setTimeout(async () => {
+    try {
+      dot.className = 'status-dot loading'
+      const { error } = await db
+        .from('tournaments')
+        .upsert({ id: 'main', data: S, updated_at: new Date().toISOString() })
+      if (error) throw error
+      dot.className = 'status-dot ok'
+    } catch(e) {
+      console.error('Save failed:', e)
+      dot.className = 'status-dot err'
+    }
+  }, 1500) // waits 1.5s after last action before hitting Supabase
 }
 
 async function ld() {
