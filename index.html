@@ -1,1 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Pitchside — Tournament Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#1a6b3a;--green-light:#e8f5ee;--green-dark:#145530;
+  --gold:#f0b429;--red:#e24b4a;
+  --bg:#ffffff;--bg2:#f7f8f6;--bg3:#f0f2ef;
+  --txt:#111211;--txt2:#5a6359;--txt3:#8f9e8d;
+  --brd:#e2e8e1;--brd2:#d0d8cf;
+  --radius:10px;--radius-lg:14px;--radius-xl:20px;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 12px rgba(0,0,0,.05);
+  --shadow-lg:0 4px 16px rgba(0,0,0,.1),0 1px 4px rgba(0,0,0,.06);
+  font-family:'DM Sans',sans-serif;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#0f1410;--bg2:#161d15;--bg3:#1c2519;
+    --txt:#e8ede7;--txt2:#8fa68d;--txt3:#5a6e58;
+    --brd:#2a3828;--brd2:#344532;
+    --green-light:#0d2a18;
+    --shadow:0 1px 3px rgba(0,0,0,.3),0 4px 12px rgba(0,0,0,.2);
+    --shadow-lg:0 4px 16px rgba(0,0,0,.4),0 1px 4px rgba(0,0,0,.2);
+  }
+}
+html,body{min-height:100vh;background:var(--bg3);color:var(--txt)}
+body{display:flex;flex-direction:column}
 
+/* ── TOPBAR ── */
+#topbar{background:var(--bg);border-bottom:1px solid var(--brd);padding:0 24px;display:flex;align-items:center;gap:16px;height:56px;position:sticky;top:0;z-index:50}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-icon{width:32px;height:32px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-icon svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.logo-text{font-size:16px;font-weight:600;color:var(--txt);letter-spacing:-.3px}
+.logo-sub{font-size:11px;color:var(--txt3);letter-spacing:.5px;text-transform:uppercase;font-family:'DM Mono',monospace}
+.topbar-tabs{display:flex;gap:2px;margin-left:auto}
+.topbar-tab{padding:6px 16px;font-size:13px;font-weight:500;border:none;background:none;color:var(--txt2);border-radius:8px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px}
+.topbar-tab:hover{background:var(--bg2);color:var(--txt)}
+.topbar-tab.active{background:var(--green-light);color:var(--green)}
+.topbar-tab i{font-size:15px}
+.status-dot{width:7px;height:7px;border-radius:50%;background:#ccc;margin-left:auto;flex-shrink:0;transition:background .3s}
+.status-dot.ok{background:#1a6b3a}
+.status-dot.err{background:#e24b4a}
+.status-dot.loading{background:#f0b429;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── LAYOUT ── */
+#main{flex:1;padding:24px;max-width:960px;margin:0 auto;width:100%}
+.page{display:none}.page.active{display:block}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;font-size:13px;font-weight:500;border:1px solid var(--brd2);border-radius:var(--radius);background:var(--bg);color:var(--txt);cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif}
+.btn:hover{background:var(--bg2);border-color:var(--brd2)}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+.btn.primary:hover{background:var(--green-dark)}
+.btn.danger{background:#fff0f0;border-color:#fccece;color:#c93c3c}
+@media(prefers-color-scheme:dark){.btn.danger{background:#2a1515;border-color:#4a2020;color:#e87878}}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--bg2)}
+.btn.gold{background:var(--gold);border-color:#d09a20;color:#412402}
+.btn.sm{padding:5px 11px;font-size:12px;border-radius:8px}
+.btn.xs{padding:3px 8px;font-size:11px;border-radius:6px}
+.btn i{font-size:15px}
+.btn.sm i{font-size:13px}
+
+/* ── CARDS ── */
+.card{background:var(--bg);border:1px solid var(--brd);border-radius:var(--radius-lg);padding:20px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card-sm{background:var(--bg);border:1px solid var(--brd);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px}
+
+/* ── INPUTS ── */
+input,select,textarea{padding:8px 12px;border:1px solid var(--brd2);border-radius:var(--radius);background:var(--bg);color:var(--txt);font-size:13px;font-family:'DM Sans',sans-serif;width:100%;transition:border-color .15s;outline:none}
+input:focus,select:focus{border-color:var(--green)}
+label{font-size:12px;color:var(--txt2);display:block;margin-bottom:5px;font-weight:500}
+
+/* ── BADGES & TAGS ── */
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;font-family:'DM Mono',monospace;letter-spacing:.3px}
+.badge.green{background:var(--green-light);color:var(--green)}
+.badge.gray{background:var(--bg3);color:var(--txt2)}
+.badge.gold{background:#fff8e6;color:#875800}
+.badge.red{background:#fff0f0;color:#c93c3c}
+@media(prefers-color-scheme:dark){
+  .badge.gold{background:#2a2000;color:#f0b429}
+  .badge.red{background:#2a1515;color:#e87878}
+}
+.tag{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500;background:var(--green-light);color:var(--green)}
+
+/* ── TYPOGRAPHY ── */
+h1{font-size:22px;font-weight:600;letter-spacing:-.4px}
+h2{font-size:18px;font-weight:600;letter-spacing:-.3px;margin-bottom:16px}
+h3{font-size:15px;font-weight:600;letter-spacing:-.2px;margin-bottom:12px}
+.section{margin-bottom:28px}
+
+/* ── PROGRESS ── */
+.progress-bar{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-top:12px}
+.progress-fill{height:100%;background:var(--green);border-radius:2px;transition:width .4s ease}
+
+/* ── MATCH CARD ── */
+.match-card{background:var(--bg2);border-radius:var(--radius);padding:12px 16px;margin-bottom:8px;border:1px solid var(--brd)}
+.match-row{display:flex;align-items:center;gap:8px}
+.match-team{flex:1;font-size:14px}
+.match-team.right{text-align:right}
+.match-team.winner{font-weight:600;color:var(--green)}
+.score-box{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.score-input{width:48px;text-align:center;padding:5px 6px;font-size:15px;font-weight:600;font-family:'DM Mono',monospace;border-radius:8px}
+.score-display{font-size:18px;font-weight:600;font-family:'DM Mono',monospace;min-width:56px;text-align:center;color:var(--txt)}
+.score-sep{color:var(--txt3);font-size:13px}
+
+/* ── STANDINGS TABLE ── */
+.standings-table{width:100%;border-collapse:collapse}
+.standings-table th{font-size:11px;font-weight:500;color:var(--txt3);text-align:left;padding:6px 8px;border-bottom:1px solid var(--brd);font-family:'DM Mono',monospace;letter-spacing:.5px}
+.standings-table td{font-size:13px;padding:8px 8px;border-bottom:1px solid var(--brd);text-align:left}
+.standings-table tr:last-child td{border:none}
+.standings-table tr.qualified td:first-child::after{content:'Q';font-size:9px;font-weight:600;color:var(--green);margin-left:4px;font-family:'DM Mono',monospace}
+
+/* ── BRACKET ── */
+.bracket-scroll{overflow-x:auto;padding-bottom:12px}
+.bracket{display:flex;gap:0;align-items:stretch;min-width:600px}
+.b-round{display:flex;flex-direction:column;justify-content:space-around;min-width:152px;padding:0 10px;border-left:1px dashed var(--brd)}
+.b-round:first-child{border-left:none;padding-left:0}
+.b-round-label{font-size:10px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;text-align:center;margin-bottom:10px;font-family:'DM Mono',monospace}
+.b-match{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);padding:7px 10px;margin-bottom:8px;font-size:12px}
+.b-match.is-final{border-color:var(--gold);background:var(--bg)}
+.b-match.is-third{border-style:dashed}
+.b-team{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--brd)}
+.b-team:last-child{border:none}
+.b-team.winner{font-weight:600;color:var(--green)}
+.b-team.tbd{color:var(--txt3);font-style:italic;font-size:11px}
+.b-match-label{font-size:10px;color:var(--txt3);margin-bottom:5px;font-family:'DM Mono',monospace;font-weight:500}
+
+/* ── GROUP BOXES ── */
+.group-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.group-box{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);padding:12px}
+.group-title{font-size:10px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-family:'DM Mono',monospace}
+.droppable{min-height:36px;border:1.5px dashed var(--brd2);border-radius:var(--radius);padding:5px;display:flex;flex-wrap:wrap;gap:5px;transition:background .15s,border-color .15s}
+.droppable.dragover{background:var(--green-light);border-color:var(--green)}
+.team-chip{padding:4px 11px;background:var(--bg);border:1px solid var(--brd2);border-radius:20px;font-size:13px;display:inline-flex;align-items:center;gap:5px;cursor:grab;user-select:none;transition:box-shadow .1s}
+.team-chip:hover{box-shadow:var(--shadow)}
+.team-chip.dragging{opacity:.5}
+
+/* ── AWARD CARDS ── */
+.award-card{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg);border:1px solid var(--brd);border-radius:var(--radius-lg);margin-bottom:10px;box-shadow:var(--shadow)}
+.award-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+
+/* ── STAT CARDS ── */
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.stat-card{background:var(--bg);border:1px solid var(--brd);border-radius:var(--radius-lg);padding:14px 16px;text-align:center;box-shadow:var(--shadow)}
+.stat-num{font-size:24px;font-weight:600;font-family:'DM Mono',monospace;color:var(--txt)}
+.stat-lbl{font-size:11px;color:var(--txt3);margin-top:3px;font-weight:500;letter-spacing:.3px;text-transform:uppercase}
+
+/* ── INFO PILL ── */
+.info-pill{background:var(--green-light);color:var(--green);border-radius:var(--radius);padding:9px 13px;font-size:12px;margin-bottom:14px;display:flex;align-items:flex-start;gap:8px;line-height:1.5}
+.info-pill i{flex-shrink:0;margin-top:1px}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;z-index:200;padding-top:60px;backdrop-filter:blur(2px)}
+.modal{background:var(--bg);border-radius:var(--radius-xl);padding:24px;width:460px;max-width:95vw;border:1px solid var(--brd2);box-shadow:var(--shadow-lg);max-height:80vh;overflow-y:auto}
+.modal h3{margin-bottom:16px}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:48px 20px;color:var(--txt3)}
+.empty i{font-size:44px;display:block;margin-bottom:12px}
+.empty p{font-size:14px}
+
+/* ── LOADING ── */
+#loader{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:999;transition:opacity .4s}
+#loader.done{opacity:0;pointer-events:none}
+.loader-logo{width:52px;height:52px;background:var(--green);border-radius:14px;display:flex;align-items:center;justify-content:center}
+.loader-logo svg{width:28px;height:28px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.loader-text{font-size:20px;font-weight:600;color:var(--txt);letter-spacing:-.4px}
+.loader-sub{font-size:12px;color:var(--txt3);font-family:'DM Mono',monospace;letter-spacing:.5px}
+.spinner{width:24px;height:24px;border:2px solid var(--brd);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── CHAMPION BANNER ── */
+.champion{text-align:center;padding:28px 20px;background:linear-gradient(135deg,var(--green-light),var(--bg));border:1px solid var(--green);border-radius:var(--radius-xl);margin-bottom:16px}
+.champion-trophy{font-size:44px;margin-bottom:8px}
+.champion-name{font-size:22px;font-weight:600;color:var(--green);letter-spacing:-.3px}
+.champion-sub{font-size:12px;color:var(--txt3);margin-top:4px;font-family:'DM Mono',monospace;letter-spacing:.5px;text-transform:uppercase}
+
+/* ── RESPONSIVE ── */
+@media(max-width:600px){
+  #main{padding:14px}
+  .group-grid{grid-template-columns:1fr}
+  .stat-grid{grid-template-columns:1fr 1fr}
+  .topbar-tab span{display:none}
+  .topbar-tab{padding:6px 10px}
+}
+</style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div id="loader">
+  <div class="loader-logo">
+    <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><circle cx="12" cy="12" r="3"/><line x1="2" y1="8" x2="6" y2="8"/><line x1="18" y1="8" x2="22" y2="8"/><line x1="2" y1="16" x2="6" y2="16"/><line x1="18" y1="16" x2="22" y2="16"/></svg>
+  </div>
+  <div class="loader-text">Pitchside</div>
+  <div class="loader-sub">Tournament Manager</div>
+  <div class="spinner" id="spinner"></div>
+</div>
+
+<!-- Top bar -->
+<div id="topbar">
+  <a class="logo" href="#">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><circle cx="12" cy="12" r="3"/><line x1="2" y1="8" x2="6" y2="8"/><line x1="18" y1="8" x2="22" y2="8"/><line x1="2" y1="16" x2="6" y2="16"/><line x1="18" y1="16" x2="22" y2="16"/></svg>
+    </div>
+    <div>
+      <div class="logo-text">Pitchside</div>
+    </div>
+  </a>
+  <div class="topbar-tabs">
+    <button class="topbar-tab active" onclick="switchTab('tournaments')" id="tab-tournaments">
+      <i class="ti ti-trophy" aria-hidden="true"></i><span>Tournaments</span>
+    </button>
+    <button class="topbar-tab" onclick="switchTab('leaderboard')" id="tab-leaderboard">
+      <i class="ti ti-chart-bar" aria-hidden="true"></i><span>Leaderboard</span>
+    </button>
+  </div>
+  <div class="status-dot loading" id="status-dot" title="Connecting..."></div>
+</div>
+
+<div id="main">
+  <div id="page-tournaments" class="page active"></div>
+  <div id="page-leaderboard" class="page"></div>
+</div>
+
+<div id="modal-root"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// CONFIGURATION — replace these two values with your own
+// ════════════════════════════════════════════════════════════
+const SUPABASE_URL = 'PASTE_YOUR_PROJECT_URL_HERE'
+const SUPABASE_KEY = 'PASTE_YOUR_ANON_KEY_HERE'
+// ════════════════════════════════════════════════════════════
+
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+
+// ── STATE ──
+const S = { tournaments: [], activeTid: null, view: 'list' }
+
+// ── DB ──
+const dot = document.getElementById('status-dot')
+async function sv() {
+  try {
+    dot.className = 'status-dot loading'
+    await db.from('tournaments').upsert({ id: 'main', data: S, updated_at: new Date().toISOString() })
+    dot.className = 'status-dot ok'
+  } catch(e) { dot.className = 'status-dot err'; console.error(e) }
+}
+async function ld() {
+  try {
+    dot.className = 'status-dot loading'
+    const { data } = await db.from('tournaments').select('data').eq('id','main').single()
+    if (data?.data) Object.assign(S, data.data)
+    dot.className = 'status-dot ok'
+  } catch(e) {
+    dot.className = 'status-dot err'
+    // fallback to localStorage if Supabase not configured
+    try { const d = localStorage.getItem('pitchside'); if(d) Object.assign(S, JSON.parse(d)) } catch(e2){}
+  }
+}
+
+// ── HELPERS ──
+function uid() { return Math.random().toString(36).slice(2,9) }
+function gT() { return S.tournaments.find(t => t.id === S.activeTid) }
+function closeModal() { document.getElementById('modal-root').innerHTML = '' }
+
+function switchTab(tab) {
+  document.querySelectorAll('.topbar-tab').forEach(b => b.classList.remove('active'))
+  document.getElementById('tab-' + tab).classList.add('active')
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.getElementById('page-' + tab).classList.add('active')
+  if (tab === 'leaderboard') renderLeaderboard()
+  else renderT()
+}
+
+// ── MATHS ──
+function nextPow2(n) { let p = 1; while (p < n) p *= 2; return p }
+function calcNumGroups(n) {
+  if (n <= 5) return 1; if (n <= 8) return 2; if (n <= 12) return 3
+  if (n <= 16) return 4; if (n <= 24) return 6; return 8
+}
+function roundRobin(ids) {
+  const m = []
+  for (let i = 0; i < ids.length; i++)
+    for (let j = i + 1; j < ids.length; j++)
+      m.push({ id: uid(), home: ids[i], away: ids[j], played: false, homeGoals: null, awayGoals: null })
+  return m
+}
+function getGroupTable(g, t) {
+  const stats = {}
+  g.teamIds.forEach(id => stats[id] = { id, gp:0, w:0, d:0, l:0, gf:0, ga:0, pts:0 })
+  const h2h = {}
+  const played = g.matches.filter(m => m.played)
+  played.forEach(m => {
+    h2h[m.home] = h2h[m.home] || {}; h2h[m.away] = h2h[m.away] || {}
+    const hh = (h2h[m.home][m.away] = h2h[m.home][m.away] || { pts:0 })
+    const ah = (h2h[m.away][m.home] = h2h[m.away][m.home] || { pts:0 })
+    if (m.homeGoals > m.awayGoals) { hh.pts += 3 }
+    else if (m.homeGoals < m.awayGoals) { ah.pts += 3 }
+    else { hh.pts++; ah.pts++ }
+  })
+  played.forEach(m => {
+    const h = stats[m.home], a = stats[m.away]; if (!h || !a) return
+    h.gp++; a.gp++; h.gf += m.homeGoals; h.ga += m.awayGoals
+    a.gf += m.awayGoals; a.ga += m.homeGoals
+    if (m.homeGoals > m.awayGoals) { h.w++; h.pts += 3; a.l++ }
+    else if (m.homeGoals < m.awayGoals) { a.w++; a.pts += 3; h.l++ }
+    else { h.d++; a.d++; h.pts++; a.pts++ }
+  })
+  return Object.values(stats).sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts
+    const gdDiff = (b.gf - b.ga) - (a.gf - a.ga); if (gdDiff !== 0) return gdDiff
+    if (b.gf !== a.gf) return b.gf - a.gf
+    const ha = (h2h[a.id]?.[b.id]?.pts) || 0, hb = (h2h[b.id]?.[a.id]?.pts) || 0
+    return hb - ha
+  })
+}
+function getAllMatches(t) {
+  let all = []
+  if (t.groups) t.groups.forEach(g => all = all.concat(g.matches || []))
+  if (t.koRounds) t.koRounds.forEach(r => all = all.concat(r.matches || []))
+  if (t.leagueMatches) all = all.concat(t.leagueMatches)
+  return all
+}
+function findMatch(t, mid) { return getAllMatches(t).find(m => m.id === mid) }
+function progress(t) {
+  const a = getAllMatches(t).filter(m => !m.bye)
+  return a.length ? Math.round(a.filter(m => m.played).length / a.length * 100) : 0
+}
+function groupsDone(t) { return t.groups && t.groups.every(g => g.matches.every(m => m.played)) }
+
+// ── SEEDED KO DRAW ──
+// A1 vs B2, B1 vs A2, C1 vs D2, D1 vs C2
+function seededDraw(groups) {
+  const matches = []
+  for (let i = 0; i < groups.length; i += 2) {
+    const ga = groups[i], gb = groups[i+1] || { name:'?', rank1id:null, rank2id:null }
+    matches.push({ id:uid(), label:`${ga.name}1 vs ${gb.name}2`, home:ga.rank1id, away:gb.rank2id, played:false, homeGoals:null, awayGoals:null })
+    matches.push({ id:uid(), label:`${gb.name}1 vs ${ga.name}2`, home:gb.rank1id, away:ga.rank2id, played:false, homeGoals:null, awayGoals:null })
+  }
+  return matches
+}
+
+function buildKOFromGroups(t) {
+  const qualifiers = t.groups.map(g => {
+    const table = getGroupTable(g, t)
+    return { name: g.name, rank1id: table[0]?.id || null, rank2id: table[1]?.id || null }
+  })
+  const total = t.groups.length * 2
+  t.koRounds = []
+  if (total >= 16) {
+    t.koRounds.push({ name:'Round of 16', key:'r16', matches: seededDraw(qualifiers) })
+    t.koRounds.push({ name:'Quarter-finals', key:'qf', matches: Array.from({length:4}, () => ({id:uid(),home:null,away:null,played:false,homeGoals:null,awayGoals:null,tbd:true})) })
+  } else if (total >= 6) {
+    const padded = [...qualifiers]
+    while (padded.length < 4) padded.push({ name:'?', rank1id:null, rank2id:null })
+    const qf = seededDraw(padded)
+    qf.forEach((m,i) => m.qfIndex = i)
+    t.koRounds.push({ name:'Quarter-finals', key:'qf', matches: qf })
+  } else {
+    const sf = [
+      { id:uid(), label:`${qualifiers[0].name}1 vs ${qualifiers[1]?.name||'B'}2`, home:qualifiers[0].rank1id, away:qualifiers[1]?.rank2id||null, played:false, homeGoals:null, awayGoals:null },
+      { id:uid(), label:`${qualifiers[1]?.name||'B'}1 vs ${qualifiers[0].name}2`, home:qualifiers[1]?.rank1id||null, away:qualifiers[0].rank2id, played:false, homeGoals:null, awayGoals:null },
+    ]
+    t.koRounds.push({ name:'Semi-finals', key:'sf', matches: sf })
+  }
+  if (!t.koRounds.find(r => r.key === 'sf')) {
+    t.koRounds.push({ name:'Semi-finals', key:'sf', matches:[
+      { id:uid(), home:null, away:null, played:false, homeGoals:null, awayGoals:null, tbd:true, sfIndex:0 },
+      { id:uid(), home:null, away:null, played:false, homeGoals:null, awayGoals:null, tbd:true, sfIndex:1 },
+    ]})
+  }
+  t.koRounds.push({ name:'Third-place play-off', key:'3rd', matches:[{ id:uid(), home:null, away:null, played:false, homeGoals:null, awayGoals:null, tbd:true }] })
+  t.koRounds.push({ name:'Final', key:'final', matches:[{ id:uid(), home:null, away:null, played:false, homeGoals:null, awayGoals:null, tbd:true }] })
+  t._koStarted = true
+}
+
+function buildPureKnockout(teamIds) {
+  const shuffled = [...teamIds].sort(() => Math.random() - .5)
+  let n = nextPow2(shuffled.length)
+  while (shuffled.length < n) shuffled.push(null)
+  const firstMatches = []
+  for (let i = 0; i < shuffled.length; i += 2) {
+    const bye = shuffled[i] === null || shuffled[i+1] === null
+    firstMatches.push({ id:uid(), home:shuffled[i], away:shuffled[i+1], played:bye, homeGoals:bye?1:null, awayGoals:bye?null:null, bye })
+  }
+  const firstName = n===32?'Round of 32':n===16?'Round of 16':n===8?'Quarter-finals':n===4?'Semi-finals':'Final'
+  const firstKey  = n===32?'r32':n===16?'r16':n===8?'qf':n===4?'sf':'final'
+  const rounds = [{ name:firstName, key:firstKey, matches:firstMatches }]
+  if (n > 4) {
+    if (n > 8) rounds.push({ name:'Quarter-finals', key:'qf', matches: Array.from({length:4},()=>({id:uid(),home:null,away:null,played:false,homeGoals:null,awayGoals:null,tbd:true})) })
+    rounds.push({ name:'Semi-finals', key:'sf', matches: [
+      {id:uid(),home:null,away:null,played:false,homeGoals:null,awayGoals:null,tbd:true},
+      {id:uid(),home:null,away:null,played:false,homeGoals:null,awayGoals:null,tbd:true}
+    ]})
+  }
+  if (!rounds.find(r => r.key === 'sf')) rounds.push({ name:'Semi-finals', key:'sf', matches:[
+    {id:uid(),home:null,away:null,played:false,homeGoals:null,awayGoals:null,tbd:true},
+    {id:uid(),home:null,away:null,played:false,homeGoals:null,awayGoals:null,tbd:true}
+  ]})
+  rounds.push({ name:'Third-place play-off', key:'3rd', matches:[{id:uid(),home:null,away:null,played:false,homeGoals:null,awayGoals:null,tbd:true}] })
+  rounds.push({ name:'Final', key:'final', matches:[{id:uid(),home:null,away:null,played:false,homeGoals:null,awayGoals:null,tbd:true}] })
+  return rounds
+}
+
+function advanceKO(t) {
+  if (!t.koRounds) return
+  const findRound = key => t.koRounds.find(r => r.key === key)
+  const winner = m => m.homeGoals >= m.awayGoals ? m.home : m.away
+  const loser  = m => m.homeGoals < m.awayGoals ? m.home : m.away
+
+  const qf = findRound('qf')
+  if (qf && qf.matches.every(m => m.played)) {
+    const sf = findRound('sf')
+    if (sf) {
+      const w = qf.matches.map(winner)
+      // SF1: W(QF1) vs W(QF3), SF2: W(QF2) vs W(QF4)
+      if (sf.matches[0]) { sf.matches[0].home = w[0]; sf.matches[0].away = w[2]; sf.matches[0].tbd = false }
+      if (sf.matches[1]) { sf.matches[1].home = w[1]; sf.matches[1].away = w[3]; sf.matches[1].tbd = false }
+    }
+  }
+  const r16 = findRound('r16')
+  if (r16 && r16.matches.every(m => m.played)) {
+    const qfR = findRound('qf')
+    if (qfR) {
+      const w = r16.matches.map(winner)
+      const pairs = [[0,1],[2,3],[4,5],[6,7]]
+      pairs.forEach(([a,b], i) => {
+        if (qfR.matches[i]) { qfR.matches[i].home = w[a]; qfR.matches[i].away = w[b]; qfR.matches[i].tbd = false }
+      })
+    }
+  }
+  const sf = findRound('sf')
+  if (sf && sf.matches.every(m => m.played)) {
+    const fin = findRound('final'), trd = findRound('3rd')
+    const winners = sf.matches.map(winner)
+    const losers  = sf.matches.map(loser)
+    if (fin?.matches[0]) { fin.matches[0].home = winners[0]; fin.matches[0].away = winners[1]; fin.matches[0].tbd = false }
+    if (trd?.matches[0]) { trd.matches[0].home = losers[0];  trd.matches[0].away = losers[1];  trd.matches[0].tbd = false }
+  }
+}
+
+function checkDone(t) {
+  if (getAllMatches(t).filter(m=>!m.bye).every(m => m.played)) t.status = 'complete'
+}
+
+// ── RENDER ROUTER ──
+function renderT() {
+  const el = document.getElementById('page-tournaments')
+  if (S.view === 'list') renderList(el)
+  else if (S.view === 'setup') renderSetup(el)
+  else renderManage(el)
+}
+
+// ── TOURNAMENT LIST ──
+function renderList(el) {
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h2 style="margin:0">Tournaments</h2>
+      <button class="btn primary" onclick="openCreate()"><i class="ti ti-plus"></i> New tournament</button>
+    </div>
+    ${S.tournaments.length === 0 ? `<div class="empty"><i class="ti ti-trophy"></i><p>No tournaments yet.<br>Create one to get started.</p></div>` :
+    S.tournaments.slice().reverse().map(t => `
+      <div class="card" style="cursor:pointer;transition:box-shadow .15s" onmouseenter="this.style.boxShadow='0 4px 20px rgba(0,0,0,.1)'" onmouseleave="this.style.boxShadow=''" onclick="openT('${t.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:16px;font-weight:600;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name}</div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <span class="tag">${t.type==='league'?'League':t.type==='knockout'?'Knockout':'Group + Knockout'}</span>
+              <span style="font-size:12px;color:var(--txt3)">${t.teams.length} teams</span>
+              ${t.type==='group_knockout'&&t.groups?`<span style="font-size:12px;color:var(--txt3)">${t.groups.length} groups</span>`:''}
+              <span class="badge ${t.status==='complete'?'green':t.status==='active'?'gold':'gray'}">${t.status}</span>
+            </div>
+          </div>
+          <button class="btn sm danger" onclick="event.stopPropagation();delT('${t.id}')"><i class="ti ti-trash"></i></button>
+        </div>
+        ${t.status !== 'setup' ? `
+          <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+            <div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:${progress(t)}%"></div></div>
+            <span style="font-size:11px;color:var(--txt3);font-family:'DM Mono',monospace">${progress(t)}%</span>
+          </div>` : ''}
+      </div>`).join('')}
+  `
+}
+
+function openCreate() {
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <h3>New tournament</h3>
+        <div style="display:flex;flex-direction:column;gap:14px;margin:4px 0 20px">
+          <div><label>Tournament name</label><input id="tn" placeholder="e.g. BUP Cup 2025" autofocus/></div>
+          <div><label>Format</label>
+            <select id="tf">
+              <option value="group_knockout">Group Stage + Knockout</option>
+              <option value="league">League – everyone plays everyone</option>
+              <option value="knockout">Knockout – direct elimination</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn ghost" onclick="closeModal()">Cancel</button>
+          <button class="btn primary" onclick="createT()"><i class="ti ti-plus"></i> Create</button>
+        </div>
+      </div>
+    </div>`
+  setTimeout(() => document.getElementById('tn')?.focus(), 50)
+}
+
+async function createT() {
+  const name = document.getElementById('tn').value.trim()
+  const type = document.getElementById('tf').value
+  if (!name) return
+  const t = { id:uid(), name, type, teams:[], status:'setup', groups:null, leagueMatches:null, koRounds:null, _koStarted:false, _tab:'Fixtures', _draft:null, _ng:null }
+  S.tournaments.push(t); S.activeTid = t.id; S.view = 'setup'
+  await sv(); closeModal(); renderT()
+}
+
+async function delT(id) {
+  if (!confirm('Delete this tournament?')) return
+  S.tournaments = S.tournaments.filter(t => t.id !== id)
+  await sv(); renderT()
+}
+
+function openT(id) {
+  S.activeTid = id
+  const t = S.tournaments.find(x => x.id === id)
+  S.view = t.status === 'setup' ? 'setup' : 'manage'
+  renderT()
+}
+
+// ── SETUP ──
+function getNG(t) { return t._ng || calcNumGroups(t.teams.length) }
+
+function rebuildDraft(t, ng) {
+  const shuffled = [...t.teams].sort(() => Math.random() - .5)
+  t._draft = Array.from({ length: ng }, (_, i) => ({ name:'Group '+'ABCDEFGHIJ'[i], teamIds:[] }))
+  shuffled.forEach((tm, i) => t._draft[i % ng].teamIds.push(tm.id))
+}
+
+function renderSetup(el) {
+  const t = gT()
+  const isGK = t.type === 'group_knockout'
+  const ng = getNG(t)
+  el.innerHTML = `
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+        <button class="btn sm ghost" onclick="S.view='list';renderT()"><i class="ti ti-arrow-left"></i></button>
+        <div>
+          <h2 style="margin:0">${t.name}</h2>
+          <span class="tag" style="margin-top:4px">${t.type==='league'?'League':t.type==='knockout'?'Knockout':'Group + Knockout'}</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Add teams</h3>
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <input id="ti" placeholder="Team name — press Enter to add" onkeydown="if(event.key==='Enter')addTeam()"/>
+          <button class="btn primary" onclick="addTeam()" style="white-space:nowrap"><i class="ti ti-plus"></i> Add</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;min-height:30px">
+          ${t.teams.map(tm => `
+            <div class="team-chip">
+              <i class="ti ti-shirt" style="font-size:12px;color:var(--txt3)" aria-hidden="true"></i>
+              ${tm.name}
+              <button onclick="removeTeam('${tm.id}')" style="background:none;border:none;cursor:pointer;color:var(--txt3);padding:0 0 0 2px;font-size:16px;line-height:1;display:flex;align-items:center">×</button>
+            </div>`).join('')}
+          ${t.teams.length === 0 ? `<span style="color:var(--txt3);font-size:13px">No teams yet</span>` : ''}
+        </div>
+      </div>
+
+      ${t.teams.length >= 2 && isGK ? `
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <h3 style="margin:0">Group assignment</h3>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="display:flex;align-items:center;gap:6px">
+                <label style="margin:0;white-space:nowrap;font-size:12px">Groups:</label>
+                <input type="number" min="1" max="8" value="${ng}" id="ng-input" style="width:58px;padding:5px 8px" onchange="setNG(parseInt(this.value)||2)"/>
+              </div>
+              <button class="btn sm gold" onclick="doShuffle()"><i class="ti ti-arrows-shuffle"></i> Shuffle</button>
+            </div>
+          </div>
+          <div class="info-pill" style="margin-top:12px">
+            <i class="ti ti-info-circle"></i>
+            <span><strong>${ng} group${ng>1?'s':''}</strong> · top 2 from each advance · <strong>${ng*2} teams</strong> in knockout · drag teams between groups to rearrange</span>
+          </div>
+          ${renderDraftGroups(t, ng)}
+        </div>
+      ` : ''}
+
+      ${t.teams.length >= 2 ? `
+        <div style="padding-top:4px">
+          <button class="btn primary" style="width:100%;justify-content:center;padding:12px" onclick="startT()">
+            <i class="ti ti-player-play"></i> Generate fixtures &amp; start tournament
+          </button>
+        </div>
+      ` : `<div class="info-pill"><i class="ti ti-info-circle"></i> Add at least 2 teams to continue.</div>`}
+    </div>`
+  initDragDrop()
+}
+
+function renderDraftGroups(t, ng) {
+  if (!t._draft || t._draft.length !== ng) rebuildDraft(t, ng)
+  const allDrafted = t._draft.flatMap(g => g.teamIds)
+  const unassigned = t.teams.filter(tm => !allDrafted.includes(tm.id))
+  return `
+    ${unassigned.length ? `
+      <div style="margin-bottom:10px">
+        <div class="group-title">Unassigned</div>
+        <div class="droppable" id="pool-unassigned" data-group="-1">
+          ${unassigned.map(tm => teamChipDrag(tm)).join('')}
+        </div>
+      </div>` : ''}
+    <div class="group-grid">
+      ${t._draft.map((g, gi) => `
+        <div class="group-box">
+          <div class="group-title">${g.name} <span style="font-weight:400">(${g.teamIds.length})</span></div>
+          <div class="droppable" id="pool-${gi}" data-group="${gi}">
+            ${g.teamIds.map(tid => { const tm = t.teams.find(x => x.id === tid); return tm ? teamChipDrag(tm) : '' }).join('')}
+          </div>
+        </div>`).join('')}
+    </div>`
+}
+
+function teamChipDrag(tm) {
+  return `<div class="team-chip" draggable="true" data-tid="${tm.id}">${tm.name}</div>`
+}
+
+function initDragDrop() {
+  let dragTid = null
+  document.querySelectorAll('[draggable="true"]').forEach(el => {
+    el.addEventListener('dragstart', e => { dragTid = e.currentTarget.dataset.tid; e.currentTarget.classList.add('dragging') })
+    el.addEventListener('dragend', e => e.currentTarget.classList.remove('dragging'))
+  })
+  document.querySelectorAll('.droppable').forEach(zone => {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover') })
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'))
+    zone.addEventListener('drop', e => {
+      e.preventDefault(); zone.classList.remove('dragover')
+      if (!dragTid) return
+      const t = gT(); const toGroup = parseInt(zone.dataset.group)
+      if (t._draft) t._draft.forEach(g => { g.teamIds = g.teamIds.filter(id => id !== dragTid) })
+      if (toGroup >= 0 && t._draft?.[toGroup]) t._draft[toGroup].teamIds.push(dragTid)
+      dragTid = null; sv(); renderT()
+    })
+  })
+}
+
+function setNG(n) {
+  const t = gT(); if (!n || n < 1) return
+  t._ng = Math.min(Math.max(n, 1), 8); t._draft = null; sv(); renderT()
+}
+function doShuffle() { const t = gT(); rebuildDraft(t, getNG(t)); sv(); renderT() }
+
+function addTeam() {
+  const inp = document.getElementById('ti'); const name = inp.value.trim(); if (!name) return
+  const t = gT()
+  if (t.teams.find(x => x.name.toLowerCase() === name.toLowerCase())) { inp.select(); return }
+  t.teams.push({ id: uid(), name }); t._draft = null; sv(); inp.value = ''; renderT()
+  setTimeout(() => document.getElementById('ti')?.focus(), 50)
+}
+function removeTeam(id) { const t = gT(); t.teams = t.teams.filter(x => x.id !== id); t._draft = null; sv(); renderT() }
+
+async function startT() {
+  const t = gT(); if (t.teams.length < 2) return
+  if (t.type === 'league') {
+    t.leagueMatches = roundRobin(t.teams.map(x => x.id))
+  } else if (t.type === 'knockout') {
+    t.koRounds = buildPureKnockout(t.teams.map(x => x.id))
+  } else {
+    const ng = getNG(t)
+    if (!t._draft || t._draft.length !== ng) rebuildDraft(t, ng)
+    t.groups = t._draft.map(g => ({ id:uid(), name:g.name, teamIds:g.teamIds, advancePerGroup:2, matches:roundRobin(g.teamIds) }))
+    t._koStarted = false; t.koRounds = null
+  }
+  t.status = 'active'; S.view = 'manage'
+  await sv(); renderT()
+}
+
+// ── MANAGE ──
+function renderManage(el) {
+  const t = gT()
+  const tabs = t.type === 'league' ? ['Fixtures','Standings','Awards'] : ['Fixtures','Standings','Bracket','Awards']
+  el.innerHTML = `
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+        <button class="btn sm ghost" onclick="S.view='list';renderT()"><i class="ti ti-arrow-left"></i></button>
+        <div style="flex:1;min-width:0">
+          <h2 style="margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name}</h2>
+        </div>
+        <span class="tag">${t.type==='league'?'League':t.type==='knockout'?'Knockout':'Group + KO'}</span>
+        <span class="badge ${t.status==='complete'?'green':t.status==='active'?'gold':'gray'}">${t.status}</span>
+      </div>
+      <div style="display:flex;gap:2px;border-bottom:1px solid var(--brd);margin-bottom:20px;overflow-x:auto">
+        ${tabs.map(tab => `
+          <button class="topbar-tab ${(t._tab||'Fixtures')===tab?'active':''}" onclick="setTab('${tab}')" style="flex-shrink:0;border-radius:8px 8px 0 0">${tab}</button>`).join('')}
+      </div>
+      <div id="mc"></div>
+    </div>`
+  renderMC(t._tab || 'Fixtures')
+}
+
+function setTab(tab) {
+  const t = gT(); t._tab = tab; sv()
+  document.querySelectorAll('#mc').forEach(() => {})
+  const allTabs = ['Fixtures','Standings','Bracket','Awards']
+  document.querySelectorAll('.topbar-tab').forEach(b => {
+    if (allTabs.includes(b.textContent.trim())) b.classList.toggle('active', b.textContent.trim() === tab)
+  })
+  renderMC(tab)
+}
+
+function renderMC(tab) {
+  const el = document.getElementById('mc'); if (!el) return
+  const t = gT()
+  if (tab === 'Fixtures') {
+    if (t.type === 'league') el.innerHTML = renderLeagueFix(t)
+    else if (t.type === 'knockout') el.innerHTML = renderKOFix(t)
+    else el.innerHTML = renderGKFix(t)
+  } else if (tab === 'Standings') {
+    if (t.type === 'league') el.innerHTML = renderLeagueStandings(t)
+    else if (t.type === 'group_knockout') el.innerHTML = renderGroupStandings(t)
+    else el.innerHTML = `<div class="bracket-scroll">${renderKOBracket(t)}</div>`
+  } else if (tab === 'Bracket') {
+    el.innerHTML = `<div class="bracket-scroll">${renderKOBracket(t)}</div>`
+  } else {
+    el.innerHTML = renderAwards(t)
+  }
+}
+
+// ── MATCH CARDS ──
+function mCard(m, t, src, labelOverride) {
+  if (m.tbd && !m.home && !m.away) {
+    return `<div class="match-card" style="opacity:.5;text-align:center;font-size:12px;color:var(--txt3);font-family:'DM Mono',monospace">${labelOverride || m.label || 'TBD'}</div>`
+  }
+  const hTeam = t.teams.find(x => x.id === m.home)
+  const aTeam = t.teams.find(x => x.id === m.away)
+  const hName = hTeam?.name || 'TBD', aName = aTeam?.name || 'TBD'
+  const hW = m.played && m.homeGoals > m.awayGoals
+  const aW = m.played && m.awayGoals > m.homeGoals
+
+  if (m.played) return `
+    <div class="match-card">
+      ${labelOverride || m.label ? `<div style="font-size:10px;color:var(--txt3);margin-bottom:6px;font-family:'DM Mono',monospace;font-weight:600;letter-spacing:.5px">${labelOverride||m.label}</div>` : ''}
+      <div class="match-row">
+        <div class="match-team right ${hW?'winner':''}">${hName}</div>
+        <div class="score-display">${m.homeGoals} <span style="color:var(--txt3);font-size:14px">:</span> ${m.awayGoals}</div>
+        <div class="match-team ${aW?'winner':''}">${aName}</div>
+      </div>
+      <div style="text-align:center;margin-top:8px">
+        <button class="btn xs ghost" onclick="undoM('${m.id}')"><i class="ti ti-edit"></i> Edit result</button>
+      </div>
+    </div>`
+
+  return `
+    <div class="match-card">
+      ${labelOverride || m.label ? `<div style="font-size:10px;color:var(--txt3);margin-bottom:6px;font-family:'DM Mono',monospace;font-weight:600;letter-spacing:.5px">${labelOverride||m.label}</div>` : ''}
+      <div class="match-row">
+        <div class="match-team right">${hName}</div>
+        <div class="score-box">
+          <input class="score-input" type="number" min="0" id="h-${m.id}" placeholder="0"/>
+          <span class="score-sep">:</span>
+          <input class="score-input" type="number" min="0" id="a-${m.id}" placeholder="0"/>
+        </div>
+        <div class="match-team">${aName}</div>
+      </div>
+      <div style="text-align:center;margin-top:10px">
+        <button class="btn sm primary" onclick="saveM('${m.id}','${src}')"><i class="ti ti-check"></i> Save result</button>
+      </div>
+    </div>`
+}
+
+async function saveM(mid, src) {
+  const t = gT(); const m = findMatch(t, mid); if (!m) return
+  const hv = document.getElementById('h-' + mid)?.value
+  const av = document.getElementById('a-' + mid)?.value
+  const h = parseInt(hv), a = parseInt(av)
+  if (isNaN(h) || isNaN(a) || h < 0 || a < 0) return alert('Enter valid scores (0 or more)')
+  m.homeGoals = h; m.awayGoals = a; m.played = true; m.tbd = false
+  if (src === 'ko') advanceKO(t)
+  if (src === 'group' && groupsDone(t) && !t._koStarted) buildKOFromGroups(t)
+  checkDone(t)
+  await sv(); renderMC(t._tab || 'Fixtures')
+}
+
+async function undoM(mid) {
+  const t = gT(); const m = findMatch(t, mid); if (!m) return
+  m.played = false; m.homeGoals = null; m.awayGoals = null
+  await sv(); renderMC(t._tab || 'Fixtures')
+}
+
+// ── FIXTURES ──
+function renderLeagueFix(t) {
+  const pending = (t.leagueMatches || []).filter(m => !m.played)
+  const done    = (t.leagueMatches || []).filter(m => m.played)
+  return `
+    ${pending.length ? `<div class="section"><h3>Upcoming <span style="color:var(--txt3);font-weight:400">(${pending.length})</span></h3>${pending.map(m => mCard(m, t, 'league')).join('')}</div>` : ''}
+    ${done.length ? `<div class="section"><h3>Results <span style="color:var(--txt3);font-weight:400">(${done.length})</span></h3>${done.map(m => mCard(m, t, 'league')).join('')}</div>` : ''}
+    ${!pending.length && done.length ? '' : ''}`
+}
+
+function renderGKFix(t) {
+  let html = ''
+  if (t.groups) {
+    html += `<div class="section"><h3>Group stage</h3>`
+    t.groups.forEach(g => {
+      const pending = g.matches.filter(m => !m.played)
+      const done    = g.matches.filter(m => m.played)
+      html += `<div style="margin-bottom:20px">
+        <div class="group-title" style="margin-bottom:8px;font-size:12px">${g.name} — top 2 advance</div>
+        ${pending.map(m => mCard(m, t, 'group')).join('')}
+        ${done.map(m => mCard(m, t, 'group')).join('')}
+      </div>`
+    })
+    html += `</div>`
+  }
+  if (t._koStarted && t.koRounds?.length) {
+    html += `<div class="section"><h3>Knockout stage</h3>`
+    const koOrder = ['r32','r16','qf','sf','3rd','final']
+    koOrder.forEach(key => {
+      const round = t.koRounds.find(r => r.key === key); if (!round) return
+      html += `<div style="margin-bottom:20px">
+        <div class="group-title" style="margin-bottom:8px;font-size:12px">${round.name}</div>
+        ${round.matches.map((m,i) => mCard(m, t, 'ko', getMatchLabel(round.key, i))).join('')}
+      </div>`
+    })
+    html += `</div>`
+  } else if (groupsDone(t) && !t._koStarted) {
+    html += `<div class="info-pill"><i class="ti ti-check"></i> Group stage complete. Save the last result to unlock the knockout stage.</div>`
+  }
+  return html
+}
+
+function renderKOFix(t) {
+  if (!t.koRounds?.length) return '<div class="empty"><i class="ti ti-tournament"></i><p>No fixtures generated</p></div>'
+  let html = ''
+  const koOrder = ['r32','r16','qf','sf','3rd','final']
+  koOrder.forEach(key => {
+    const round = t.koRounds.find(r => r.key === key); if (!round) return
+    html += `<div class="section"><h3>${round.name}</h3>
+      ${round.matches.map((m,i) => mCard(m, t, 'ko', getMatchLabel(round.key, i))).join('')}
+    </div>`
+  })
+  return html
+}
+
+function getMatchLabel(key, i) {
+  const labels = { qf:['QF1','QF2','QF3','QF4'], sf:['SF1','SF2'], '3rd':['3rd Place'], final:['Final'], r16:['R16-1','R16-2','R16-3','R16-4','R16-5','R16-6','R16-7','R16-8'], r32:['R32'] }
+  return labels[key]?.[i] || null
+}
+
+// ── BRACKET ──
+function renderKOBracket(t) {
+  if (!t.koRounds?.length) return `<div style="color:var(--txt3);font-size:13px;padding:1rem">${t.type==='group_knockout'&&!t._koStarted?'Complete the group stage to unlock the bracket.':'No bracket yet.'}</div>`
+  const koOrder = ['r32','r16','qf','sf','final']
+  let html = `<div class="bracket">`
+  koOrder.forEach(key => {
+    const round = t.koRounds.find(r => r.key === key); if (!round) return
+    html += `<div class="b-round"><div class="b-round-label">${round.name}</div>`
+    round.matches.forEach((m, i) => {
+      const lbl = getMatchLabel(round.key, i)
+      const ht = t.teams.find(x => x.id === m.home), at = t.teams.find(x => x.id === m.away)
+      const hW = m.played && m.homeGoals >= m.awayGoals
+      const aW = m.played && m.awayGoals > m.homeGoals
+      const isFinal = round.key === 'final'
+      html += `<div class="b-match${isFinal?' is-final':''}">`
+      if (lbl) html += `<div class="b-match-label">${lbl}</div>`
+      if (m.tbd && !m.home && !m.away) {
+        html += `<div class="b-team tbd">TBD</div><div class="b-team tbd">TBD</div>`
+      } else {
+        html += `<div class="b-team${hW?' winner':''}">${ht?.name||'TBD'} ${m.played?`<span style="font-family:'DM Mono',monospace;font-size:11px">${m.homeGoals}</span>`:`<span style="color:var(--txt3)">-</span>`}</div>`
+        html += `<div class="b-team${aW?' winner':''}">${at?.name||'TBD'} ${m.played?`<span style="font-family:'DM Mono',monospace;font-size:11px">${m.awayGoals}</span>`:`<span style="color:var(--txt3)">-</span>`}</div>`
+      }
+      html += `</div>`
+    })
+    html += `</div>`
+  })
+  // 3rd place alongside final
+  const third = t.koRounds.find(r => r.key === '3rd')
+  if (third) {
+    html += `<div class="b-round"><div class="b-round-label">3rd place</div>`
+    third.matches.forEach(m => {
+      const ht = t.teams.find(x => x.id === m.home), at = t.teams.find(x => x.id === m.away)
+      const hW = m.played && m.homeGoals >= m.awayGoals, aW = m.played && m.awayGoals > m.homeGoals
+      html += `<div class="b-match is-third">`
+      if (m.tbd && !m.home && !m.away) {
+        html += `<div class="b-team tbd">Loser SF1</div><div class="b-team tbd">Loser SF2</div>`
+      } else {
+        html += `<div class="b-team${hW?' winner':''}">${ht?.name||'TBD'} ${m.played?`<span style="font-family:'DM Mono',monospace;font-size:11px">${m.homeGoals}</span>`:`<span style="color:var(--txt3)">-</span>`}</div>`
+        html += `<div class="b-team${aW?' winner':''}">${at?.name||'TBD'} ${m.played?`<span style="font-family:'DM Mono',monospace;font-size:11px">${m.awayGoals}</span>`:`<span style="color:var(--txt3)">-</span>`}</div>`
+      }
+      html += `</div>`
+    })
+    html += `</div>`
+  }
+  html += `</div>`
+  // Champion banner
+  const finalRound = t.koRounds.find(r => r.key === 'final')
+  if (finalRound?.matches[0]?.played) {
+    const m = finalRound.matches[0]
+    const wid = m.homeGoals >= m.awayGoals ? m.home : m.away
+    const w = t.teams.find(x => x.id === wid)
+    html += `<div class="champion" style="margin-top:20px">
+      <div class="champion-trophy">🏆</div>
+      <div class="champion-name">${w?.name || '?'}</div>
+      <div class="champion-sub">Tournament Champion</div>
+    </div>`
+  }
+  return html
+}
+
+// ── STANDINGS ──
+function standingsTable(rows, t, adv) {
+  return `<div style="overflow-x:auto"><table class="standings-table">
+    <tr><th>#</th><th>Team</th><th>GP</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th></tr>
+    ${rows.map((s, i) => {
+      const tm = t.teams.find(x => x.id === s.id)
+      const isAdv = adv && i < adv
+      return `<tr class="${isAdv?'qualified':''}">
+        <td style="color:var(--txt3);font-family:'DM Mono',monospace">${i+1}</td>
+        <td style="font-weight:${i===0?600:400}">${tm?.name||'?'}</td>
+        <td>${s.gp}</td>
+        <td style="color:var(--green);font-weight:500">${s.w}</td>
+        <td>${s.d}</td>
+        <td style="color:var(--red)">${s.l}</td>
+        <td>${s.gf}</td>
+        <td>${s.ga}</td>
+        <td style="font-weight:500">${s.gf-s.ga>0?'+':''}${s.gf-s.ga}</td>
+        <td style="font-weight:600;font-family:'DM Mono',monospace">${s.pts}</td>
+      </tr>`
+    }).join('')}
+  </table></div>`
+}
+
+function renderLeagueStandings(t) {
+  const stats = {}
+  t.teams.forEach(tm => stats[tm.id] = { id:tm.id, gp:0, w:0, d:0, l:0, gf:0, ga:0, pts:0 })
+  ;(t.leagueMatches || []).filter(m => m.played).forEach(m => {
+    const h = stats[m.home], a = stats[m.away]; if (!h || !a) return
+    h.gp++; a.gp++; h.gf+=m.homeGoals; h.ga+=m.awayGoals; a.gf+=m.awayGoals; a.ga+=m.homeGoals
+    if (m.homeGoals>m.awayGoals){h.w++;h.pts+=3;a.l++}
+    else if (m.homeGoals<m.awayGoals){a.w++;a.pts+=3;h.l++}
+    else{h.d++;a.d++;h.pts++;a.pts++}
+  })
+  return `<div class="card">${standingsTable(Object.values(stats).sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)), t)}</div>`
+}
+
+function renderGroupStandings(t) {
+  if (!t.groups) return '<div class="empty"><i class="ti ti-table"></i><p>Not started</p></div>'
+  return t.groups.map(g => `
+    <div style="margin-bottom:20px">
+      <h3>${g.name} <span style="font-size:12px;font-weight:400;color:var(--txt3)">top 2 advance (Q)</span></h3>
+      <div class="card">${standingsTable(getGroupTable(g, t), t, 2)}</div>
+    </div>`).join('')
+}
+
+// ── AWARDS ──
+function renderAwards(t) {
+  const scorers = {}, conceded = {}, clean = {}
+  t.teams.forEach(tm => { scorers[tm.id]=0; conceded[tm.id]=0; clean[tm.id]=0 })
+  getAllMatches(t).filter(m => m.played && !m.bye).forEach(m => {
+    scorers[m.home]  = (scorers[m.home]  || 0) + m.homeGoals
+    scorers[m.away]  = (scorers[m.away]  || 0) + m.awayGoals
+    conceded[m.home] = (conceded[m.home] || 0) + m.awayGoals
+    conceded[m.away] = (conceded[m.away] || 0) + m.homeGoals
+    if (m.awayGoals === 0) clean[m.home] = (clean[m.home] || 0) + 1
+    if (m.homeGoals === 0) clean[m.away] = (clean[m.away] || 0) + 1
+  })
+  const byScore = [...t.teams].sort((a,b) => scorers[b.id] - scorers[a.id])
+  const byDef   = [...t.teams].sort((a,b) => conceded[a.id] - conceded[b.id])
+  const byClean = [...t.teams].sort((a,b) => clean[b.id] - clean[a.id])
+  const played  = getAllMatches(t).filter(m => m.played && !m.bye).length
+
+  const awards = [
+    { icon:'⚽', label:'Top Scorer', team:byScore[0], val:scorers[byScore[0]?.id]||0, unit:'goals scored', color:'#1a6b3a', bg:'#e8f5ee' },
+    { icon:'🛡️', label:'Best Defender', team:byDef[0], val:conceded[byDef[0]?.id]||0, unit:'goals conceded', color:'#185FA5', bg:'#e8f0fb' },
+    { icon:'🧤', label:'Most Clean Sheets', team:byClean[0], val:clean[byClean[0]?.id]||0, unit:'clean sheets', color:'#7B3F00', bg:'#fdf0e0' },
+  ]
+
+  return `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-num">${t.teams.length}</div><div class="stat-lbl">Teams</div></div>
+      <div class="stat-card"><div class="stat-num">${played}</div><div class="stat-lbl">Played</div></div>
+      <div class="stat-card"><div class="stat-num">${getAllMatches(t).filter(m=>!m.bye).length}</div><div class="stat-lbl">Fixtures</div></div>
+    </div>
+
+    <h3>Sub awards</h3>
+    ${awards.map(a => `
+      <div class="award-card">
+        <div class="award-icon" style="background:${a.bg}">${a.icon}</div>
+        <div style="flex:1">
+          <div style="font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:.6px;font-weight:600;font-family:'DM Mono',monospace">${a.label}</div>
+          <div style="font-size:16px;font-weight:600;margin-top:3px">${a.team?.name || '—'}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:24px;font-weight:600;font-family:'DM Mono',monospace;color:${a.color}">${a.val}</div>
+          <div style="font-size:11px;color:var(--txt3)">${a.unit}</div>
+        </div>
+      </div>`).join('')}
+
+    <h3 style="margin-top:24px">Goal tally</h3>
+    <div class="card"><div style="overflow-x:auto"><table class="standings-table">
+      <tr><th>Team</th><th>Goals For</th><th>Goals Against</th><th>Clean Sheets</th></tr>
+      ${[...t.teams].sort((a,b) => scorers[b.id]-scorers[a.id]).map(tm => `
+        <tr>
+          <td>${tm.name}</td>
+          <td style="font-weight:600;color:var(--green)">${scorers[tm.id]||0}</td>
+          <td style="color:var(--red)">${conceded[tm.id]||0}</td>
+          <td>${clean[tm.id]||0}</td>
+        </tr>`).join('')}
+    </table></div></div>`
+}
+
+// ── LEADERBOARD ──
+function renderLeaderboard() {
+  const el = document.getElementById('page-leaderboard')
+  const all = {}, tscorers = {}
+  S.tournaments.forEach(t => {
+    t.teams.forEach(tm => { if (!all[tm.name]) all[tm.name] = { name:tm.name, gp:0, w:0, d:0, l:0, gf:0, ga:0, pts:0, titles:0 } })
+    getAllMatches(t).filter(m => m.played && !m.bye).forEach(m => {
+      const ht = t.teams.find(x => x.id===m.home), at = t.teams.find(x => x.id===m.away)
+      if (!ht || !at) return
+      const h = all[ht.name], a = all[at.name]; if (!h || !a) return
+      h.gp++; a.gp++; h.gf+=m.homeGoals; h.ga+=m.awayGoals; a.gf+=m.awayGoals; a.ga+=m.homeGoals
+      if (m.homeGoals>m.awayGoals){h.w++;h.pts+=3;a.l++}
+      else if (m.homeGoals<m.awayGoals){a.w++;a.pts+=3;h.l++}
+      else{h.d++;a.d++;h.pts++;a.pts++}
+      tscorers[ht.name] = (tscorers[ht.name]||0) + m.homeGoals
+      tscorers[at.name] = (tscorers[at.name]||0) + m.awayGoals
+    })
+    if (t.status === 'complete') {
+      const fr = t.koRounds?.find(r => r.key === 'final')
+      if (fr?.matches[0]?.played && t.koRounds.find(r=>r.key==='final')?.matches.length === 1) {
+        const m = fr.matches[0]; const wid = m.homeGoals >= m.awayGoals ? m.home : m.away
+        const w = t.teams.find(x => x.id === wid)
+        if (w && all[w.name]) all[w.name].titles++
+      }
+    }
+  })
+  const sorted = Object.values(all).filter(x => x.gp > 0).sort((a,b) => b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga))
+  const topS = Object.entries(tscorers).sort((a,b) => b[1]-a[1]).slice(0,10)
+
+  el.innerHTML = `
+    <h2>All-time Leaderboard</h2>
+    ${sorted.length === 0 ? `<div class="empty"><i class="ti ti-chart-bar"></i><p>No match data yet.<br>Complete some tournaments first.</p></div>` : `
+      <div class="card" style="overflow-x:auto;margin-bottom:24px">
+        <table class="standings-table">
+          <tr><th>#</th><th>Team</th><th>🏆</th><th>GP</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th></tr>
+          ${sorted.map((s,i) => `<tr>
+            <td style="color:var(--txt3);font-family:'DM Mono',monospace">${i+1}</td>
+            <td style="font-weight:${i===0?600:400}">${s.name}</td>
+            <td style="color:var(--gold)">${s.titles > 0 ? '★'.repeat(Math.min(s.titles,5)) : '—'}</td>
+            <td>${s.gp}</td>
+            <td style="color:var(--green);font-weight:500">${s.w}</td>
+            <td>${s.d}</td>
+            <td style="color:var(--red)">${s.l}</td>
+            <td>${s.gf}</td>
+            <td>${s.ga}</td>
+            <td>${s.gf-s.ga>0?'+':''}${s.gf-s.ga}</td>
+            <td style="font-weight:600;font-family:'DM Mono',monospace">${s.pts}</td>
+          </tr>`).join('')}
+        </table>
+      </div>
+
+      ${topS.length ? `
+        <h2>All-time top scorers</h2>
+        <div class="card">
+          ${topS.map(([name,g],i) => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd);${i===topS.length-1?'border:none':''}">
+              <div style="display:flex;align-items:center;gap:12px">
+                <span style="font-size:12px;color:var(--txt3);font-family:'DM Mono',monospace;width:18px">${i+1}</span>
+                <span style="font-weight:${i===0?600:400}">${name}</span>
+                ${i===0?`<span class="badge gold">Top scorer</span>`:''}
+              </div>
+              <div style="font-size:16px;font-weight:600;font-family:'DM Mono',monospace;color:var(--green)">⚽ ${g}</div>
+            </div>`).join('')}
+        </div>` : ''}
+    `}`
+}
+
+// ── INIT ──
+async function init() {
+  await ld()
+  renderT()
+  setTimeout(() => {
+    document.getElementById('loader').classList.add('done')
+    setTimeout(() => document.getElementById('loader').style.display='none', 500)
+  }, 800)
+}
+
+init()
+</script>
+</body>
+</html>
