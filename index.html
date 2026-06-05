@@ -276,15 +276,24 @@ async function sv() {
   }
 }
 async function ld() {
+  // Step 1: always restore from localStorage first (instant, offline-safe)
+  try {
+    const local = localStorage.getItem('pitchside')
+    if (local) Object.assign(S, JSON.parse(local))
+  } catch(e) {}
+
+  // Step 2: try Supabase for the latest cloud-synced version
   try {
     dot.className = 'status-dot loading'
-    const { data } = await db.from('tournaments').select('data').eq('id','main').single()
-    if (data?.data) Object.assign(S, data.data)
+    const { data, error } = await db.from('tournaments').select('data').eq('id','main').single()
+    if (!error && data?.data) {
+      Object.assign(S, data.data)
+      // Keep localStorage in sync
+      localStorage.setItem('pitchside', JSON.stringify(S))
+    }
     dot.className = 'status-dot ok'
   } catch(e) {
     dot.className = 'status-dot err'
-    // fallback to localStorage if Supabase not configured
-    try { const d = localStorage.getItem('pitchside'); if(d) Object.assign(S, JSON.parse(d)) } catch(e2){}
   }
 }
 
