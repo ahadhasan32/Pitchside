@@ -1,1 +1,23 @@
-{ "version": "0.0.1", "configurations": [ { "name": "web", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 3000 } ] }
+{
+ "version": "0.0.1",
+ "configurations": [
+  {
+   "name": "web",
+   "runtimeExecutable": "npm",
+   "runtimeArgs": [
+    "run",
+    "dev"
+   ],
+   "port": 3000
+  },
+  {
+   "name": "web-uitest",
+   "runtimeExecutable": "bash",
+   "runtimeArgs": [
+    "-c",
+    "NEXT_PUBLIC_TOURNAMENT_SLUG=uitest NEXT_PUBLIC_SITE_URL=http://localhost:3001 npx next dev -p 3001"
+   ],
+   "port": 3001
+  }
+ ]
+}

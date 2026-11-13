@@ -192,6 +192,7 @@ export default function MatchControl({ params }: { params: Promise<{ id: string 
       </div>
 
       {isScorer && home && away && <RatingsPanel m={m} home={home} away={away} roster={roster} patch={patch} busy={busy} />}
+      {isScorer && home && away && <LineupPanel m={m} teams={[home, away]} roster={roster} />}
 
       {draft && (
         <div className="modal-backdrop open" style={{ display: 'flex' }} role="dialog" aria-modal="true">
@@ -445,6 +446,41 @@ function RatingsPanel({ m, home, away, roster, patch, busy }: {
                     onBlur={(e) => { const cur = rated.find((r) => r.player_id === p.id)?.rating; if (String(cur ?? '') !== e.target.value) save(p.id, e.target.value); }} />
                 </div>
               ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LineupPanel({ m, teams, roster }: { m: Match; teams: Team[]; roster: (tid: string | null) => Player[] }) {
+  const snap = useSnap();
+  const { busy, run } = useAction();
+  const sb = supabaseBrowser();
+  const [open, setOpen] = useState(false);
+  const current = (tid: string) => {
+    const rows = snap.lineups.filter((l) => l.match_id === m.id && l.team_id === tid).map((l) => l.player_id);
+    return new Set(rows.length ? rows : roster(tid).map((p) => p.id));
+  };
+  const [sel, setSel] = useState<Record<string, Set<string>>>(() => Object.fromEntries(teams.map((t) => [t.id, current(t.id)])));
+  return (
+    <div className="ws-card" style={{ marginBottom: '1rem' }}>
+      <div className="rule-sec-title"><span>👥 WHO PLAYED (MATCHES PLAYED STAT · DEFAULT: WHOLE ROSTER)</span><button type="button" className="filter-btn" onClick={() => setOpen((v) => !v)}><span>{open ? 'HIDE' : 'EDIT'}</span></button></div>
+      {open && (
+        <div className="grid-2">
+          {teams.map((t) => (
+            <div key={t.id}>
+              <div style={{ fontFamily: 'var(--font-sport)', color: 'var(--cyan)', fontWeight: 800, marginBottom: '0.3rem' }}>{t.display_name}</div>
+              {roster(t.id).map((p) => (
+                <label key={p.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.85rem', minHeight: 34 }}>
+                  <input type="checkbox" style={{ width: 20, height: 20, accentColor: 'var(--lime)' }} checked={sel[t.id]?.has(p.id) ?? false}
+                    onChange={(e) => setSel((s) => { const n = new Set(s[t.id]); if (e.target.checked) n.add(p.id); else n.delete(p.id); return { ...s, [t.id]: n }; })} />
+                  {p.jersey ?? '–'} {p.name}
+                </label>
+              ))}
+              <button type="button" className="btn-skew btn-cyan-outline" style={{ marginTop: '0.4rem' }} disabled={busy}
+                onClick={() => run(() => sb.rpc('admin_lineup_set', { p_match: m.id, p_team: t.id, p_players: [...(sel[t.id] ?? [])] }), 'Lineup saved')}><span>SAVE {t.short_code}</span></button>
             </div>
           ))}
         </div>

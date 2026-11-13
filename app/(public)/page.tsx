@@ -161,9 +161,11 @@ export default function HomePage() {
           {snap.settings.registration_open ? 'REGISTRATION IS OPEN' : 'REGISTRATION CLOSED — TOURNAMENT IN PROGRESS'}
         </h3>
         <p style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginBottom: '0.8rem' }}>
-          {snap.settings.registration_open ? 'Contact TrIvanta Events to register your team for the next edition.' : 'All 8 squads are locked in. Follow every goal live.'}
+          {snap.settings.registration_open ? 'Register your team for the next edition. Entries are reviewed by the organisers.' : 'All 8 squads are locked in. Follow every goal live.'}
         </p>
-        <Link href="/fixtures" className="btn-skew btn-lime"><span>⚽ LIVE RESULTS</span></Link>
+        {snap.settings.registration_open
+          ? <Link href="/register" className="btn-skew btn-lime"><span>📝 REGISTER A TEAM</span></Link>
+          : <Link href="/fixtures" className="btn-skew btn-lime"><span>⚽ LIVE RESULTS</span></Link>}
       </div>
 
       <SectionHead kicker="❄️ SPECIAL HONOURS" cyan="INDIVIDUAL" lime="AWARDS">

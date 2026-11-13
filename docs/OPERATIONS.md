@@ -57,7 +57,7 @@ npm run import:sheet -- --skip-logos # re-run without touching logos
 ```
 Prints the reconciliation report (teams, players, logos, payments total vs sheet, eligibility flags, unmatched, skipped). Re-running never duplicates: teams by Reg ID, players by Reg ID + slot, payments by import key, matches by code. Existing rows edited in admin are kept.
 
-The old Pitchside `tournaments` table does not exist in this Supabase project, so there were no prior results to import (§5B skipped).
+The old Pitchside app used a different Supabase project (`rcabkmfikepusdozqtbr`), which no longer resolves (deleted/paused), so there were no prior results to import (§5B skipped). Its client was also misconfigured (`/rest/v1/` appended to the project URL).
 
 ## Deploy (Vercel)
 
@@ -89,10 +89,10 @@ Restore into an empty project: `pg_restore --no-owner -d "$DATABASE_URL" ws-….
 ## Cutover checklist
 
 - [x] Schema migrated; importer run and reconciliation report verified (8 teams, 76 players, 8 logos, ৳9,935 collected = sheet).
-- [ ] Commit + push to `main`; confirm the production deploy at https://pitchside-beryl.vercel.app (Vercel framework preset → Next.js).
+- [x] Commit + push to `main`; production deploy live at https://pitchside-beryl.vercel.app (`vercel.json` pins Next.js).
 - [ ] `SUPABASE_SERVICE_ROLE_KEY` present in Vercel env (for invites).
-- [ ] `npm run create-owner -- bnsq37@gmail.com` → accept invite → set password → invite scorers.
-- [ ] Old Pitchside table lock: not applicable (no `tournaments` table in this project). If the old app used a different Supabase project, run there: `alter table tournaments enable row level security; drop policy if exists … ; create policy read_only on tournaments for select using (true);`
+- [x] `npm run create-owner -- bnsq37@gmail.com` (invite sent) → [ ] accept invite → set password → invite scorers.
+- [x] Old Pitchside table lock: not applicable — the old project `rcabkmfikepusdozqtbr` no longer resolves. If it is ever restored, run there: `alter table tournaments enable row level security; drop policy if exists … ; create policy read_only on tournaments for select using (true);`
 - [ ] Apps Script: Extensions → Apps Script → replace `doPost` with
       `function doPost(e){return ContentService.createTextOutput(JSON.stringify({ok:false,error:'Registration is closed'})).setMimeType(ContentService.MimeType.JSON);}`
       → **Deploy → Manage deployments → ✎ Edit → Version: New version → Deploy**. Nothing else in Apps Script is maintained.
@@ -107,4 +107,4 @@ Vercel → Project → Settings → Domains → add `winter.example.com` → cre
 
 - Create a new `tournaments` row (new slug) + `settings` + `groups`, import or add teams, seed fixtures (see `lib/seed-data.ts` / `roundRobin` in `lib/tournament.ts`), set `NEXT_PUBLIC_TOURNAMENT_SLUG` to the new slug.
 - Admin → Settings → Registration open: public submissions go to `registration_submissions` (insert-only, rate-limited, never auto-confirmed).
-- Tests: `npm test` (logic) and `npx tsx tests/db-sim.ts` (full DB simulation, rolled back).
+- Tests: `npm test` (logic), `npx tsx tests/db-sim.ts` (full DB simulation, rolled back), and the UI/API check: `npx tsx scripts/uitest.ts setup` → run the `web-uitest` dev server (port 3001) → `npx tsx scripts/uitest-run.ts` → `npx tsx scripts/uitest.ts teardown`.
