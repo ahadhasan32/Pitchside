@@ -8,7 +8,7 @@ const POS: Record<string, string> = { goalkeeper: 'GK', defender: 'DEFENDER', mi
 
 export default function TeamsPage() {
   const snap = useSnap();
-  const teams = [...snap.teams].sort((a, b) => (snap.groups.find((g) => g.id === a.group_id)?.code ?? '').localeCompare(snap.groups.find((g) => g.id === b.group_id)?.code ?? '') || a.display_name.localeCompare(b.display_name));
+  const teams = [...snap.teams].filter((t) => t.status !== 'withdrawn').sort((a, b) => (snap.groups.find((g) => g.id === a.group_id)?.code ?? '').localeCompare(snap.groups.find((g) => g.id === b.group_id)?.code ?? '') || a.display_name.localeCompare(b.display_name));
   const [sel, setSel] = useState(teams[0]?.id);
   const stats = useMemo(() => computePlayerStats(snap), [snap]);
   const susp = computeSuspensions(snap);
@@ -38,7 +38,7 @@ export default function TeamsPage() {
                   <div style={{ fontSize: '0.74rem', color: n >= 10 ? 'var(--lime)' : 'var(--text-muted)' }}>{n} / 10 players registered</div>
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.25rem', textAlign: 'center', background: 'rgba(5,11,30,0.65)', padding: '0.4rem', borderRadius: 6, fontSize: '0.74rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.25rem', textAlign: 'center', background: 'rgba(13,42,108,0.65)', padding: '0.4rem', borderRadius: 6, fontSize: '0.74rem' }}>
                 <div><div style={{ color: 'var(--text-muted)' }}>P</div><div style={{ color: '#fff', fontWeight: 700 }}>{o.P}</div></div>
                 <div><div style={{ color: 'var(--text-muted)' }}>W-D-L</div><div style={{ color: '#fff', fontWeight: 700 }}>{o.W}-{o.D}-{o.L}</div></div>
                 <div><div style={{ color: 'var(--text-muted)' }}>GF:GA</div><div style={{ color: '#fff', fontWeight: 700 }}>{o.GF}:{o.GA}</div></div>

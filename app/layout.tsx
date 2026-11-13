@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   icons: { icon: '/brand/favicon.png', apple: '/brand/favicon.png' },
   openGraph: { title: 'Winter Showdown 2026 — Live', description: 'Live scores, standings and stats', images: ['/brand/hero-bg.jpg'] },
 };
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, maximumScale: 5, themeColor: '#050B1E' };
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, maximumScale: 5, themeColor: '#0d2a6c' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-        <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,600;0,700;1,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Russo+One&family=Teko:wght@600;700&family=Hind+Siliguri:wght@400;600;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Hind+Siliguri:wght@400;600;700&display=swap" rel="stylesheet" />
       </head>
       <body>{children}</body>
     </html>

@@ -7,7 +7,7 @@ import type { Snapshot } from '@/lib/types';
 type Ctx = { snap: Snapshot; connected: boolean; refresh: () => Promise<void> };
 const LiveCtx = createContext<Ctx | null>(null);
 
-const TABLES = ['matches', 'match_events', 'player_match_ratings', 'match_lineups', 'teams', 'players', 'settings', 'awards', 'tournaments'];
+const TABLES = ['matches', 'match_events', 'player_match_ratings', 'match_lineups', 'teams', 'players', 'settings', 'awards', 'tournaments', 'live_pings'];
 
 /**
  * Holds the tournament snapshot and keeps it fresh:

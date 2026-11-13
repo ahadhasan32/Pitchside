@@ -31,12 +31,12 @@ async function main() {
 
   console.log('Admin pages (SSR with session)');
   ok((await get('/admin', false)).status === 307, '/admin without session redirects to /login');
-  for (const p of ['/admin', '/admin/matches', `/admin/matches/${m1.id}`, '/admin/knockout', '/admin/teams', '/admin/awards', '/admin/payments', '/admin/registrations', '/admin/settings', '/admin/admins', '/admin/audit', '/admin/account']) {
+  for (const p of ['/admin', '/admin/matches', `/admin/matches/${m1.id}`, '/admin/knockout', '/admin/teams', '/admin/ratings', '/admin/awards', '/admin/payments', '/admin/registrations', '/admin/settings', '/admin/admins', '/admin/audit', '/admin/account']) {
     const r = await get(p);
     ok(r.status === 200 && !/Application error|Unhandled Runtime Error/.test(r.text), `${p} → ${r.status}`);
   }
   const mc = await get(`/admin/matches/${m1.id}`);
-  ok(mc.text.includes('START MATCH'), 'match control shows START MATCH for a scheduled match');
+  ok(mc.text.includes('START MATCH') && mc.text.includes('GOAL SCORERS') && mc.text.includes('CARD HOLDERS'), 'match control: START MATCH + split goal/card sections');
 
   console.log('Match control flow (same RPCs as the UI)');
   const rpc = async (fn: string, args: Record<string, unknown>) => { const r = await sb.rpc(fn, args); if (r.error) throw new Error(r.error.message); return r.data; };

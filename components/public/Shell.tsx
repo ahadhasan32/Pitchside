@@ -3,7 +3,20 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { useSnap } from './LiveProvider';
-import { displayStatus } from '@/lib/tournament';
+import { champion, displayStatus } from '@/lib/tournament';
+import type { Snapshot } from '@/lib/types';
+
+/** Awards & champions are revealed only at the end of the tournament. */
+export function awardsRevealed(snap: Snapshot) { return snap.settings.site_mode === 'completed' || !!champion(snap); }
+
+export function Socials() {
+  return (
+    <div className="soc">
+      <a href="https://www.instagram.com/trivanta.play/" target="_blank" rel="noopener noreferrer" aria-label="TrIvanta on Instagram" title="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" /></svg></a>
+      <a href="https://web.facebook.com/profile.php?id=61596115838118" target="_blank" rel="noopener noreferrer" aria-label="TrIvanta on Facebook" title="Facebook"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg></a>
+    </div>
+  );
+}
 
 export function SnowCanvas() {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -45,7 +58,6 @@ const TABS = [
   { href: '/bracket', label: '🏆 KNOCKOUT' },
   { href: '/stats', label: '🔥 STATS' },
   { href: '/teams', label: '🛡️ TEAMS' },
-  { href: '/awards', label: '👑 AWARDS' },
   { href: '/rules', label: '📜 RULEBOOK' },
 ];
 
@@ -78,6 +90,7 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
   const snap = useSnap();
   const anyLive = snap.matches.some((m) => m.status === 'live');
   const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));
+  const tabs = awardsRevealed(snap) ? [...TABS.slice(0, -1), { href: '/awards', label: '👑 AWARDS' }, TABS[TABS.length - 1]] : TABS;
   const banner = snap.settings.banner_en || snap.settings.banner_bn;
   return (
     <>
@@ -85,18 +98,15 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
       <div className="app-shell">
         <header className="top-header">
           <div className="header-inner">
-            <Link href="/" className="brand-logo">
-              <span className="brand-trivanta">TRIVANTA</span>
-              <span className="brand-divider">//</span>
-              <span className="brand-sub">WINTER SHOWDOWN &apos;26 ❄️</span>
+            <Link href="/" className="brand-logo" aria-label="Winter Showdown home">
+              <img className="brand-img" src="/brand/trivanta-logo.png" alt="TrIvanta" />
+              <span className="brand-sub">WINTER SHOWDOWN &apos;26</span>
             </Link>
-            <div className="header-actions">
-              <Link href="/print" className="btn-skew btn-cyan-outline no-print" title="Print standings, schedule & rulebook"><span>🖨️ PRINT VIEW</span></Link>
-            </div>
+            <div className="header-actions"><Socials /></div>
           </div>
           <div className="nav-strip-wrap">
             <nav className="nav-strip" aria-label="Tournament navigation">
-              {TABS.map((t) => (
+              {tabs.map((t) => (
                 <Link key={t.href} href={t.href} className={`nav-tab ${isActive(t.href) ? 'active' : ''}`}>
                   {t.href === '/' ? <>{anyLive && <span className="live-dot" />} HOME</> : t.label}
                 </Link>
@@ -115,17 +125,12 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
         <footer className="ws-footer">
-          <div className="footer-logo">TRIVANTA EVENTS</div>
-          <div style={{ fontSize: '0.84rem', color: 'var(--text-soft)', maxWidth: 620, margin: '0 auto' }}>
-            <strong>WINTER SHOWDOWN 2026</strong> · 13 November 2026 · OFFSIDE – Home of Football (Mirpur) · 6-a-Side Futsal (Max 10 Players/Team)
-          </div>
-          <div className="footer-follow">❄️ FAIR PLAY • RESPECT THE REFEREE • PLAY TO WIN ❄️</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Points: Win 3 · Draw 1 · Loss 0 | Official Tiebreakers (§13): 1. GD → 2. GF → 3. Head-to-Head → 4. Fair-Play Record → 5. Organiser Decision
-          </div>
-          <div style={{ fontSize: '0.75rem', marginTop: '0.5rem' }}>
-            <a href="https://www.instagram.com/trivanta.play/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--cyan)' }}>Instagram @trivanta.play</a>
-          </div>
+          <img className="flogo" src="/brand/trivanta-logo.png" alt="TrIvanta" />
+          <p className="fol">Follow us</p>
+          <Socials />
+          <p style={{ marginTop: 22, fontSize: '0.85rem' }}>
+            © TrIvanta · Winter Showdown 2026 · <Link href="/rules#terms">Terms &amp; Conditions</Link> · <Link href="/rules">Rulebook</Link> · <Link href="/print">Print view</Link>
+          </p>
         </footer>
       </div>
     </>

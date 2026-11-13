@@ -9,6 +9,7 @@ const LINKS: { href: string; label: string; min: Role }[] = [
   { href: '/admin/matches', label: '⚽ MATCHES', min: 'viewer' },
   { href: '/admin/knockout', label: '🏆 STANDINGS & KO', min: 'viewer' },
   { href: '/admin/teams', label: '🛡️ TEAMS & ROSTERS', min: 'viewer' },
+  { href: '/admin/ratings', label: '⭐ RATINGS', min: 'viewer' },
   { href: '/admin/awards', label: '👑 AWARDS', min: 'viewer' },
   { href: '/admin/payments', label: '💳 PAYMENTS', min: 'viewer' },
   { href: '/admin/registrations', label: '🗂️ REGISTRATIONS', min: 'viewer' },
@@ -36,7 +37,7 @@ export function AdminNav() {
       </div>
       <div className="nav-strip-wrap">
         <nav className="nav-strip">
-          {LINKS.filter((l) => can(l.min)).filter((l) => role !== 'scorer' || ['/admin', '/admin/matches', '/admin/knockout', '/admin/awards', '/admin/teams'].includes(l.href)).map((l) => (
+          {LINKS.filter((l) => can(l.min)).filter((l) => role !== 'scorer' || ['/admin', '/admin/matches', '/admin/knockout', '/admin/awards', '/admin/teams', '/admin/ratings'].includes(l.href)).map((l) => (
             <Link key={l.href} href={l.href} className={`nav-tab ${active(l.href) ? 'active' : ''}`}>{l.label}</Link>
           ))}
         </nav>

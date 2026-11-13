@@ -5,7 +5,7 @@ import { useSnap } from '@/components/public/LiveProvider';
 import { useAdmin } from '@/components/admin/AdminContext';
 import { confirmDialog } from '@/components/admin/Confirm';
 import { useAction } from '@/components/admin/useAction';
-import { BigLogo, cardIcon, fmtTimeAmPm, placeholderName } from '@/components/public/bits';
+import { BigLogo, TeamCrest, cardIcon, fmtTimeAmPm, placeholderName } from '@/components/public/bits';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { computeSuspensions, displayStatus, matchWinnerId, stageLabel } from '@/lib/tournament';
 import type { EventType, Match, MatchEvent, Player, Team } from '@/lib/types';
@@ -54,8 +54,8 @@ export default function MatchControl({ params }: { params: Promise<{ id: string 
     setDraft({ id: e.id, kind: isGoal ? 'goal' : 'card', forTeam, ownGoal: e.type === 'own_goal', type: e.type, player: e.player_id, assist: e.assist_player_id ?? '', minute: e.minute?.toString() ?? '', editing: true });
   };
   const delEvent = async (e: MatchEvent) => {
-    if (!(await confirmDialog({ title: 'DELETE EVENT', body: <>Delete {e.type.replace('_', ' ')} by <strong>{player(e.player_id)?.name}</strong>? Score and stats recalculate.</>, danger: true, confirmLabel: 'DELETE' }))) return;
-    await run(() => sb.rpc('admin_event_delete', { p_id: e.id }), 'Event deleted');
+    if (!(await confirmDialog({ title: 'REMOVE EVENT', body: <>Delete {e.type.replace('_', ' ')} by <strong>{player(e.player_id)?.name}</strong>? Score and stats recalculate. (Kept in the audit history.)</>, danger: true, confirmLabel: 'REMOVE' }))) return;
+    await run(() => sb.rpc('admin_event_delete', { p_id: e.id }), 'Event removed');
   };
 
   const saveDraft = async () => {
@@ -77,19 +77,37 @@ export default function MatchControl({ params }: { params: Promise<{ id: string 
   };
 
   const teamColumn = (t: Team | undefined, side: 'home' | 'away') => {
-    if (!t) return <div className="ws-card"><p style={{ color: 'var(--text-muted)' }}>Team not assigned yet ({placeholderName(side === 'home' ? m.home_placeholder : m.away_placeholder)}).</p></div>;
+    if (!t) return <div className="split-half"><p style={{ color: 'var(--text-muted)' }}>Team not assigned yet ({placeholderName(side === 'home' ? m.home_placeholder : m.away_placeholder)}).</p></div>;
+    const other = side === 'home' ? m.away_team_id : m.home_team_id;
+    const goals = evs.filter((e) => (e.type === 'goal' && e.team_id === t.id) || (e.type === 'own_goal' && e.team_id === other));
+    const cards = evs.filter((e) => e.team_id === t.id && e.type !== 'goal' && e.type !== 'own_goal');
+    const row = (e: MatchEvent, label: React.ReactNode) => (
+      <div key={e.id} className="ev-row">
+        <span className="ev-min">{e.minute != null ? `${e.minute}′` : '–'}</span>
+        <span className="ev-txt">{label}</span>
+        {isScorer && !locked && (
+          <span className="ev-act">
+            <button type="button" className="ev-btn" disabled={busy} onClick={() => editEvent(e)} aria-label="Edit">✎</button>
+            <button type="button" className="ev-btn bad" disabled={busy} onClick={() => delEvent(e)} aria-label="Remove">✕</button>
+          </span>
+        )}
+      </div>
+    );
     return (
-      <div className="ws-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', gap: '0.4rem', flexWrap: 'wrap' }}>
-          <strong style={{ fontFamily: 'var(--font-display)', fontSize: '1.05rem' }}>{t.display_name}</strong>
-          <div style={{ display: 'flex', gap: '0.4rem' }}>
-            <button type="button" className="btn-skew btn-lime" disabled={!canEvents || busy} onClick={() => openGoal(t.id)} style={{ minHeight: 44 }}><span>⚽ ADD GOAL</span></button>
-            <button type="button" className="btn-skew btn-cyan-outline" disabled={!canEvents || busy} onClick={() => openCard(t.id)} style={{ minHeight: 44 }}><span>🟨 CARD</span></button>
-          </div>
+      <div className="split-half">
+        <div className="split-team"><TeamCrest team={t} size={34} /><strong>{t.display_name}</strong><span className="split-score">{side === 'home' ? m.home_score : m.away_score}</span></div>
+        <div className="split-actions">
+          <button type="button" className="btn-skew btn-lime" disabled={!canEvents || busy} onClick={() => openGoal(t.id)}><span>⚽ + GOAL</span></button>
+          <button type="button" className="btn-skew btn-cyan-outline" disabled={!canEvents || busy} onClick={() => openCard(t.id)}><span>🟨 + CARD</span></button>
         </div>
-        <div style={{ display: 'grid', gap: '0.25rem' }}>
-          {roster(t.id).map((p) => <PlayerRow key={p.id} p={p} m={m} evs={evs} susp={susp.get(p.id)} />)}
-        </div>
+        <div className="split-label">⚽ GOAL SCORERS</div>
+        {goals.length === 0 ? <div className="ev-empty">No goals</div> : goals.map((e) => row(e, <><strong>{player(e.player_id)?.name}</strong>{e.type === 'own_goal' ? ' (OG)' : ''}{e.assist_player_id && <span className="ev-sub"> · assist {player(e.assist_player_id)?.name}</span>}</>))}
+        <div className="split-label">🟨 CARD HOLDERS</div>
+        {cards.length === 0 ? <div className="ev-empty">No cards</div> : cards.map((e) => row(e, <>{cardIcon(e.type)} <strong>{player(e.player_id)?.name}</strong>{e.type === 'red_violent' && <span className="ev-sub"> · expelled</span>}</>))}
+        <details className="split-squad">
+          <summary>SQUAD ({roster(t.id).length})</summary>
+          <div style={{ display: 'grid', gap: '0.25rem', marginTop: '0.4rem' }}>{roster(t.id).map((p) => <PlayerRow key={p.id} p={p} m={m} evs={evs} susp={susp.get(p.id)} />)}</div>
+        </details>
       </div>
     );
   };
@@ -157,39 +175,11 @@ export default function MatchControl({ params }: { params: Promise<{ id: string 
 
       {showDetails && <DetailsPanel m={m} home={home} away={away} maxAdded={maxAdded} patch={patch} busy={busy} roster={roster} />}
 
-      <div className="grid-2" style={{ marginBottom: '1rem' }}>
+      <section className="ws-card split-board" style={{ marginBottom: '1rem' }}>
         {teamColumn(home, 'home')}
+        <div className="split-divider" aria-hidden />
         {teamColumn(away, 'away')}
-      </div>
-
-      <div className="ws-card" style={{ marginBottom: '1rem' }}>
-        <div className="rule-sec-title"><span>⏱️ EVENTS ({evs.length})</span></div>
-        {evs.length === 0 ? <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No events yet.</p> : (
-          <div style={{ display: 'grid', gap: '0.35rem' }}>
-            {evs.map((e) => {
-              const isGoal = e.type === 'goal' || e.type === 'own_goal';
-              const benefit = e.type === 'own_goal' ? team(e.team_id === m.home_team_id ? m.away_team_id : m.home_team_id) : team(e.team_id);
-              return (
-                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,.06)', padding: '0.3rem 0', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '0.88rem' }}>
-                    <span style={{ fontFamily: 'var(--font-tall)', fontSize: '1.2rem', color: 'var(--cyan)', marginRight: 6 }}>{e.minute != null ? `${e.minute}′` : '—'}</span>
-                    {isGoal ? '⚽' : cardIcon(e.type)} <strong>{player(e.player_id)?.name}</strong>
-                    {e.type === 'own_goal' && <> (OG → {benefit?.short_code})</>}
-                    {e.assist_player_id && <span style={{ color: 'var(--text-muted)' }}> · A: {player(e.assist_player_id)?.name}</span>}
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}> · {isGoal ? benefit?.short_code : team(e.team_id)?.short_code}</span>
-                  </span>
-                  {isScorer && !locked && (
-                    <span style={{ display: 'flex', gap: '0.35rem' }}>
-                      <button type="button" className="btn-skew btn-cyan-outline" style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', minHeight: 36 }} disabled={busy} onClick={() => editEvent(e)}><span>EDIT</span></button>
-                      <button type="button" className="btn-skew btn-danger-outline" style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', minHeight: 36 }} disabled={busy} onClick={() => delEvent(e)}><span>DELETE</span></button>
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      </section>
 
       {isScorer && home && away && <RatingsPanel m={m} home={home} away={away} roster={roster} patch={patch} busy={busy} />}
       {isScorer && home && away && <LineupPanel m={m} teams={[home, away]} roster={roster} />}
@@ -232,7 +222,7 @@ export default function MatchControl({ params }: { params: Promise<{ id: string 
                 const out = s && (s.kind === 'expelled' || (s.active && s.servesMatchId === m.id));
                 return (
                   <button key={p.id} type="button" className="player-tap-chip" onClick={() => setDraft({ ...draft, player: p.id, assist: draft.assist === p.id ? '' : draft.assist })}
-                    style={{ minHeight: 44, ...(draft.player === p.id ? { background: 'var(--lime)', color: '#050B1E', borderColor: 'var(--lime)' } : {}), ...(out ? { opacity: 0.45 } : {}) }}>
+                    style={{ minHeight: 44, ...(draft.player === p.id ? { background: 'var(--lime)', color: 'var(--ink)', borderColor: 'var(--lime)' } : {}), ...(out ? { opacity: 0.45 } : {}) }}>
                     {p.jersey != null ? `#${p.jersey} ` : ''}{p.name}{out ? (s!.kind === 'expelled' ? ' ⛔' : ' ⚠') : ''}
                   </button>
                 );
@@ -242,9 +232,9 @@ export default function MatchControl({ params }: { params: Promise<{ id: string 
               <>
                 <label className="form-label">ASSIST</label>
                 <div className="player-chip-grid" style={{ marginBottom: '0.7rem' }}>
-                  <button type="button" className="player-tap-chip" onClick={() => setDraft({ ...draft, assist: '' })} style={{ minHeight: 44, ...(draft.assist === '' ? { background: 'var(--cyan)', color: '#050B1E' } : {}) }}>No assist</button>
+                  <button type="button" className="player-tap-chip" onClick={() => setDraft({ ...draft, assist: '' })} style={{ minHeight: 44, ...(draft.assist === '' ? { background: 'var(--cyan)', color: 'var(--ink)' } : {}) }}>No assist</button>
                   {scorerPool.filter((p) => p.id !== draft.player).map((p) => (
-                    <button key={p.id} type="button" className="player-tap-chip" onClick={() => setDraft({ ...draft, assist: p.id })} style={{ minHeight: 44, ...(draft.assist === p.id ? { background: 'var(--cyan)', color: '#050B1E' } : {}) }}>
+                    <button key={p.id} type="button" className="player-tap-chip" onClick={() => setDraft({ ...draft, assist: p.id })} style={{ minHeight: 44, ...(draft.assist === p.id ? { background: 'var(--cyan)', color: 'var(--ink)' } : {}) }}>
                       {p.jersey != null ? `#${p.jersey} ` : ''}{p.name}
                     </button>
                   ))}
@@ -414,42 +404,70 @@ function RatingsPanel({ m, home, away, roster, patch, busy }: {
   patch: (p: Record<string, unknown>, msg?: string) => Promise<boolean>;
 }) {
   const snap = useSnap();
-  const { run } = useAction();
+  const { toast } = useAdmin();
+  const { busy: saving, run } = useAction();
   const sb = supabaseBrowser();
-  const [open, setOpen] = useState(false);
-  const rated = snap.ratings.filter((r) => r.match_id === m.id);
-  const save = (pid: string, v: string) => {
-    const val = v.trim() === '' ? null : Number(v);
-    if (val != null && (isNaN(val) || val < 0 || val > 10)) return;
-    void run(() => sb.rpc('admin_rating_set', { p_match: m.id, p_player: pid, p_rating: val }));
+  const saved = useMemo(() => Object.fromEntries(snap.ratings.filter((r) => r.match_id === m.id).map((r) => [r.player_id, r.rating])), [snap.ratings, m.id]);
+  const avg = useMemo(() => {
+    const out: Record<string, { avg: number; n: number }> = {};
+    for (const r of snap.ratings) { const o = (out[r.player_id] ??= { avg: 0, n: 0 }); o.avg = (o.avg * o.n + Number(r.rating)) / (o.n + 1); o.n++; }
+    return out;
+  }, [snap.ratings]);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const value = (pid: string) => draft[pid] ?? (saved[pid] != null ? String(saved[pid]) : '');
+  const dirty = Object.keys(draft).filter((pid) => draft[pid] !== (saved[pid] != null ? String(saved[pid]) : ''));
+  const step = (pid: string, d: number) => {
+    const cur = value(pid) === '' ? 6 : Number(value(pid));
+    setDraft({ ...draft, [pid]: String(Math.min(10, Math.max(0, Math.round((cur + d) * 10) / 10))) });
+  };
+  const saveAll = async () => {
+    for (const pid of dirty) {
+      const v = draft[pid].trim();
+      if (v !== '' && (isNaN(Number(v)) || Number(v) < 0 || Number(v) > 10)) return toast(`${snap.players.find((p) => p.id === pid)?.name}: rating must be 0–10`, true);
+    }
+    const ok = await run(async () => {
+      for (const pid of dirty) {
+        const v = draft[pid].trim();
+        const r = await sb.rpc('admin_rating_set', { p_match: m.id, p_player: pid, p_rating: v === '' ? null : Math.round(Number(v) * 10) / 10 });
+        if (r.error) return r;
+      }
+    }, `${dirty.length} rating${dirty.length === 1 ? '' : 's'} saved`);
+    if (ok) setDraft({});
   };
   return (
     <div className="ws-card" style={{ marginBottom: '1rem' }}>
       <div className="rule-sec-title">
-        <span>⭐ PLAYER RATINGS ({rated.length})</span>
-        <span style={{ display: 'flex', gap: '0.4rem' }}>
-          <button type="button" className={`filter-btn ${m.ratings_published ? 'active' : ''}`} disabled={busy} onClick={() => patch({ ratings_published: !m.ratings_published }, m.ratings_published ? 'Ratings hidden' : 'Ratings published')}>
-            <span>{m.ratings_published ? 'PUBLISHED ✓' : 'NOT PUBLISHED'}</span>
-          </button>
-          <button type="button" className="filter-btn" onClick={() => setOpen((v) => !v)}><span>{open ? 'HIDE' : 'EDIT'}</span></button>
-        </span>
+        <span>⭐ PLAYER RATINGS — THIS MATCH ({Object.keys(saved).length} rated)</span>
+        <button type="button" className={`filter-btn ${m.ratings_published ? 'active' : ''}`} disabled={busy} onClick={() => patch({ ratings_published: !m.ratings_published }, m.ratings_published ? 'Ratings hidden from public' : 'Ratings published')}>
+          <span>{m.ratings_published ? 'PUBLIC ✓' : 'HIDDEN FROM PUBLIC'}</span>
+        </button>
       </div>
-      {open && (
-        <div className="grid-2">
-          {[home, away].map((t) => (
-            <div key={t.id}>
-              <div style={{ fontFamily: 'var(--font-sport)', color: 'var(--cyan)', fontWeight: 800, marginBottom: '0.3rem' }}>{t.display_name}</div>
-              {roster(t.id).map((p) => (
-                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem', padding: '0.15rem 0' }}>
-                  <span style={{ fontSize: '0.84rem' }}>{p.jersey ?? '–'} {p.name}</span>
-                  <input className="form-input" inputMode="decimal" placeholder="0–10" defaultValue={rated.find((r) => r.player_id === p.id)?.rating ?? ''} style={{ width: 72, padding: '0.3rem' }}
-                    onBlur={(e) => { const cur = rated.find((r) => r.player_id === p.id)?.rating; if (String(cur ?? '') !== e.target.value) save(p.id, e.target.value); }} />
+      <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginBottom: '0.6rem' }}>0–10, one decimal. Use − / + (0.5 steps) or type. Leave empty for players who weren&apos;t rated. “Avg” = tournament average over rated matches.</p>
+      <div className="split-board">
+        {[home, away].map((t, i) => (
+          <div key={t.id} className="split-half" style={i === 1 ? { gridColumn: 3 } : undefined}>
+            <div className="split-label" style={{ marginTop: 0 }}>{t.display_name}</div>
+            {roster(t.id).map((p) => {
+              const changed = dirty.includes(p.id);
+              return (
+                <div key={p.id} className="rate-row">
+                  <span className="rate-name">{p.jersey ?? '–'} {p.name}</span>
+                  <span className="rate-avg">{avg[p.id] ? `avg ${avg[p.id].avg.toFixed(1)} (${avg[p.id].n})` : ''}</span>
+                  <button type="button" className="ev-btn" onClick={() => step(p.id, -0.5)} aria-label="minus">−</button>
+                  <input className="form-input rate-input" inputMode="decimal" placeholder="—" value={value(p.id)} style={changed ? { borderColor: 'var(--lime)' } : undefined}
+                    onChange={(e) => setDraft({ ...draft, [p.id]: e.target.value.replace(/[^\d.]/g, '').slice(0, 4) })} />
+                  <button type="button" className="ev-btn" onClick={() => step(p.id, 0.5)} aria-label="plus">+</button>
                 </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        ))}
+        <div className="split-divider" aria-hidden style={{ gridColumn: 2, gridRow: 1 }} />
+      </div>
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.8rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button type="button" className="btn-skew btn-lime" style={{ minHeight: 48 }} disabled={saving || dirty.length === 0} onClick={saveAll}><span>{saving ? 'SAVING…' : `SAVE ${dirty.length || ''} RATING${dirty.length === 1 ? '' : 'S'}`}</span></button>
+        {dirty.length > 0 && <button type="button" className="btn-skew btn-cyan-outline" onClick={() => setDraft({})}><span>DISCARD</span></button>}
+      </div>
     </div>
   );
 }

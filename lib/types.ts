@@ -20,6 +20,7 @@ export interface Team {
   id: string; tournament_id: string; group_id: string | null; name: string; display_name: string; short_code: string;
   color: string; logo_url: string | null; captain_player_id: string | null; lot_rank: number | null;
   status: 'pending' | 'confirmed' | 'withdrawn';
+  replaces_team_id?: string | null; results_policy?: 'keep' | 'expunge' | 'transfer'; withdrawn_at?: string | null;
 }
 export interface Player {
   id: string; team_id: string; slot: number | null; name: string; position: Position; jersey: number | null; active: boolean;
@@ -38,7 +39,7 @@ export interface Match {
 }
 export interface MatchEvent {
   id: string; match_id: string; type: EventType; team_id: string; player_id: string; assist_player_id: string | null;
-  minute: number | null; note: string | null; created_at: string;
+  minute: number | null; note: string | null; created_at: string; deleted_at?: string | null;
 }
 export interface Rating { match_id: string; player_id: string; rating: number }
 export interface Lineup { match_id: string; player_id: string; team_id: string }

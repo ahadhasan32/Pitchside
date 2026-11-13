@@ -24,7 +24,7 @@ export async function loadSnapshot(sb: SupabaseClient, slug = TOURNAMENT_SLUG): 
   const matchIds = (must(matches, 'matches') as { id: string }[]).map((m) => m.id);
   const [players, events, ratings, lineups] = await Promise.all([
     sb.from('players').select('*').in('team_id', teamIds).order('jersey', { nullsFirst: false }),
-    sb.from('match_events').select('*').in('match_id', matchIds).order('minute', { nullsFirst: false }).order('created_at'),
+    sb.from('match_events').select('*').in('match_id', matchIds).is('deleted_at', null).order('minute', { nullsFirst: false }).order('created_at'),
     sb.from('player_match_ratings').select('*').in('match_id', matchIds),
     sb.from('match_lineups').select('*').in('match_id', matchIds),
   ]);

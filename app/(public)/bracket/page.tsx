@@ -2,12 +2,11 @@
 import { useSnap } from '@/components/public/LiveProvider';
 import { MatchCard, SectionHead } from '@/components/public/bits';
 import { champion } from '@/lib/tournament';
+import { BracketUp } from '@/components/public/Finale';
 
 export default function BracketPage() {
   const snap = useSnap();
   const sf1 = snap.matches.find((m) => m.code === 'SF1');
-  const sf2 = snap.matches.find((m) => m.code === 'SF2');
-  const fin = snap.matches.find((m) => m.code === 'FINAL');
   const third = snap.matches.find((m) => m.code === 'THIRD');
   const champ = champion(snap);
   const set = !!sf1?.home_team_id;
@@ -33,27 +32,7 @@ export default function BracketPage() {
           {champ.runnerUp && <div style={{ fontSize: '0.84rem', color: 'var(--cyan)' }}>🥈 Runners-up: <strong>{champ.runnerUp.display_name}</strong> (৳4,000 + Trophy)</div>}
         </div>
       )}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <div style={{ fontFamily: 'var(--font-sport)', fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.12em', color: 'var(--cyan)', marginBottom: '0.65rem' }}>
-          ⚡ STAGE 1: SEMIFINALS (15 MIN + UP TO 3 MIN ADDED · 4-KICK PENALTY SHOOTOUT IF TIED)
-        </div>
-        <div className="bracket-stage-grid">
-          {sf1 && <div><MatchCard m={sf1} snap={snap} /></div>}
-          {sf2 && <div><MatchCard m={sf2} snap={snap} /></div>}
-        </div>
-      </div>
-      <div style={{ textAlign: 'center', margin: '0.5rem 0 1rem', color: 'var(--lime)', fontFamily: 'var(--font-sport)', fontWeight: 800, letterSpacing: '0.2em' }}>▼ SEMIFINAL WINNERS ADVANCE TO THE GRAND FINAL ▼</div>
-      {fin && (
-        <div style={{ maxWidth: 680, margin: '0 auto' }}>
-          <div className="grand-final-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-              <span className="badge-skew badge-ko" style={{ fontSize: '0.85rem', padding: '0.25rem 0.8rem' }}>🏆 GRAND FINAL • 20 MIN + UP TO 4 MIN ADDED</span>
-              <span style={{ fontFamily: 'var(--font-sport)', fontSize: '0.78rem', color: 'var(--lime)' }}>1ST: ৳6,000 · 2ND: ৳4,000</span>
-            </div>
-            <MatchCard m={fin} snap={snap} />
-          </div>
-        </div>
-      )}
+      <BracketUp snap={snap} />
       {third && snap.settings.third_place_enabled && <div style={{ maxWidth: 680, margin: '1.25rem auto 0' }}><MatchCard m={third} snap={snap} /></div>}
     </>
   );

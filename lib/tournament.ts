@@ -82,12 +82,10 @@ function tally(teamIds: string[], results: Res[]) {
   const t: Record<string, { P: number; W: number; D: number; L: number; GF: number; GA: number; Pts: number }> = {};
   for (const id of teamIds) t[id] = { P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, Pts: 0 };
   for (const r of results) {
+    // A side may be missing (team withdrawn with results kept): the other side still keeps its result.
     const h = t[r.home], a = t[r.away];
-    if (!h || !a) continue;
-    h.P++; a.P++; h.GF += r.hs; h.GA += r.as; a.GF += r.as; a.GA += r.hs;
-    if (r.hs > r.as) { h.W++; a.L++; h.Pts += 3; }
-    else if (r.hs < r.as) { a.W++; h.L++; a.Pts += 3; }
-    else { h.D++; a.D++; h.Pts++; a.Pts++; }
+    if (h) { h.P++; h.GF += r.hs; h.GA += r.as; if (r.hs > r.as) { h.W++; h.Pts += 3; } else if (r.hs < r.as) h.L++; else { h.D++; h.Pts++; } }
+    if (a) { a.P++; a.GF += r.as; a.GA += r.hs; if (r.as > r.hs) { a.W++; a.Pts += 3; } else if (r.as < r.hs) a.L++; else { a.D++; a.Pts++; } }
   }
   return t;
 }
@@ -168,13 +166,29 @@ export function fairPlayByTeam(matches: Match[], events: MatchEvent[], settings:
   return fp;
 }
 
+/** Replacement teams inherit the slot (and, with policy "transfer", the played results) of the team they replaced. */
+export function teamAliases(teams: Team[]) {
+  const alias = new Map<string, string>();
+  for (const t of teams) {
+    const old = t.replaces_team_id ? teams.find((o) => o.id === t.replaces_team_id) : undefined;
+    if (old && old.results_policy === 'transfer') alias.set(old.id, t.id);
+  }
+  const resolve = (id: string) => { let x = id; for (let i = 0; i < 10 && alias.has(x); i++) x = alias.get(x)!; return x; };
+  const expunged = new Set(teams.filter((t) => t.status === 'withdrawn' && t.results_policy === 'expunge').map((t) => t.id));
+  return { resolve, expunged };
+}
+
 export function computeGroupTable(snap: Snapshot, groupId: string): GroupTable {
   const group = snap.groups.find((g) => g.id === groupId)!;
+  const { resolve, expunged } = teamAliases(snap.teams);
   const teams = snap.teams.filter((t) => t.group_id === groupId && t.status !== 'withdrawn');
-  const groupMatches = snap.matches.filter((m) => m.stage === 'group' && m.group_id === groupId && m.status !== 'cancelled');
+  const groupMatches = snap.matches
+    .filter((m) => m.stage === 'group' && m.group_id === groupId && m.status !== 'cancelled')
+    .filter((m) => !expunged.has(m.home_team_id ?? '') && !expunged.has(m.away_team_id ?? ''))
+    .map((m) => ({ ...m, home_team_id: m.home_team_id && resolve(m.home_team_id), away_team_id: m.away_team_id && resolve(m.away_team_id) }));
   const counted = groupMatches.filter((m) => m.finalized && m.home_team_id && m.away_team_id);
   const results = counted.map(resOf);
-  const fp = fairPlayByTeam(counted, snap.events, snap.settings);
+  const fp = fairPlayByTeam(counted, snap.events.map((e) => ({ ...e, team_id: resolve(e.team_id) })), snap.settings);
   const order = snap.settings.tiebreak_order?.length ? snap.settings.tiebreak_order : ['gd', 'gf', 'h2h', 'fairplay', 'lot'];
   const { order: ranked, unresolved, table } = rankTeams(teams, results, fp, order);
 
@@ -227,9 +241,10 @@ export function qualification(
     let x = c;
     for (const m of remaining) {
       const o = x % 3; x = Math.floor(x / 3);
-      if (o === 0) pts[m.home_team_id!] += 3;
-      else if (o === 1) pts[m.away_team_id!] += 3;
-      else { pts[m.home_team_id!] += 1; pts[m.away_team_id!] += 1; }
+      const h = m.home_team_id!, a = m.away_team_id!;
+      if (o === 0) { if (h in pts) pts[h] += 3; }
+      else if (o === 1) { if (a in pts) pts[a] += 3; }
+      else { if (h in pts) pts[h] += 1; if (a in pts) pts[a] += 1; }
     }
     for (const id of ids) {
       const geq = ids.filter((o) => o !== id && pts[o] >= pts[id]).length; // worst case: lose every tie-break

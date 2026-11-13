@@ -165,6 +165,45 @@ async function main() {
     ok((await q(`select match_winner($1) w`, [M.FINAL]))[0].w === T.B1, 'champion = B1');
     await expectErr('cannot reopen a semifinal once the final has been played', () => q(`select admin_match_action($1,'reopen',null)`, [M.SF2]), /KO_STARTED/);
 
+    console.log('Soft deletes & team changes');
+    await as('authenticated', scorer);
+    await q(`select admin_match_action($1,'reopen',null)`, [M.M12]);
+    const evId = (await q(`select id from match_events where match_id=$1 and deleted_at is null limit 1`, [M.M12]))[0].id;
+    await q(`select admin_event_delete($1)`, [evId]);
+    await asSuper();
+    ok((await q(`select deleted_at from match_events where id=$1`, [evId]))[0].deleted_at !== null, 'removing an event is a soft delete (row kept)');
+    ok((await q(`select count(*)::int c from live_pings where match_id=$1`, [M.M12]))[0].c === 1, 'event write pings realtime');
+    await as('anon', null);
+    ok((await q(`select * from match_events where id=$1`, [evId])).length === 0, 'soft-deleted event hidden from public');
+    await as('authenticated', scorer);
+    await expectErr('stale retry cannot resurrect a removed event', () => q(`select admin_event_save($1,$2,'goal',$3,$4)`, [evId, M.M12, T.B2, P.B2[0]]), /DELETED/);
+    await expectErr('players cannot be hard-deleted', async () => { const r = await db.query(`delete from players where id=$1`, [P.B4[0]]); if (!r.rowCount) throw new Error('blocked (0 rows)'); }, /blocked|permission/);
+    await as('authenticated', owner);
+    await expectErr('teams cannot be hard-deleted', async () => { const r = await db.query(`delete from teams where id=$1`, [T.B4]); if (!r.rowCount) throw new Error('blocked (0 rows)'); }, /blocked|permission/);
+    // replace A4 with a new team: scheduled A4 matches move over
+    const t2 = (await q(`insert into tournaments(slug,name,is_test) values ('sim2-' || gen_random_uuid(),'SIM2',true) returning id`))[0].id;
+    await asSuper();
+    const g2 = (await q(`insert into groups(tournament_id,code,name) values ($1,'A','A') returning id`, [t2]))[0].id;
+    const X: Record<string, string> = {};
+    for (const k of ['X1', 'X2', 'X3']) X[k] = (await q(`insert into teams(tournament_id,group_id,name,display_name,short_code) values ($1,$2,$3,$3,$3) returning id`, [t2, g2, k]))[0].id;
+    const mA = (await q(`insert into matches(tournament_id,code,match_no,stage,group_id,home_team_id,away_team_id,status,finalized) values ($1,'A',1,'group',$2,$3,$4,'full_time',true) returning id`, [t2, g2, X.X1, X.X2]))[0].id;
+    const mB = (await q(`insert into matches(tournament_id,code,match_no,stage,group_id,home_team_id,away_team_id) values ($1,'B',2,'group',$2,$3,$4) returning id`, [t2, g2, X.X1, X.X3]))[0].id;
+    await as('authenticated', owner);
+    const nid = (await q(`select admin_team_replace($1,'New FC','New FC','NEW','#112233',true) id`, [X.X1]))[0].id;
+    await asSuper();
+    ok((await q(`select home_team_id from matches where id=$1`, [mB]))[0].home_team_id === nid, 'replace: future match moves to the new team');
+    ok((await q(`select home_team_id from matches where id=$1`, [mA]))[0].home_team_id === X.X1, 'replace: played match keeps its history');
+    ok((await q(`select status, results_policy from teams where id=$1`, [X.X1]))[0].results_policy === 'transfer', 'replace: old team withdrawn with results transferred');
+    await as('authenticated', owner);
+    const n = (await q(`select admin_team_withdraw($1,'keep') n`, [X.X3]))[0].n;
+    await asSuper();
+    ok(n === 1 && (await q(`select status from matches where id=$1`, [mB]))[0].status === 'cancelled', 'withdraw: remaining match cancelled (not deleted)');
+    await as('authenticated', owner);
+    await q(`select admin_match_restore($1)`, [mB]);
+    await asSuper();
+    ok((await q(`select status from matches where id=$1`, [mB]))[0].status === 'scheduled', 'cancelled match can be restored');
+    await as('authenticated', owner);
+
     console.log('Bracket protection & audit');
     await q(`select admin_match_action($1,'reopen',null)`, [M.M03]);
     ok((await q(`select bracket_needs_review from tournaments where id=$1`, [tid]))[0].bracket_needs_review === true, 'reopening a group match after semis flags the bracket for review');

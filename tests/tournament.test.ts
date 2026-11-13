@@ -154,3 +154,27 @@ describe('player stats & leaderboards', () => {
     expect(computeGroupTable(sn, 'gA').rows.find((r) => r.team.id === 'A')!.fairPlay).toBe(3);
   });
 });
+
+describe('team replacement / withdrawal', () => {
+  it('transfer: the replacement inherits the old team results', () => {
+    const old = { ...team('A'), status: 'withdrawn' as const, results_policy: 'transfer' as const };
+    const neu = { ...team('N'), replaces_team_id: 'A' };
+    const s = snapshot({ teams: [old, neu, team('B'), team('C'), team('D')], matches: [match(1, 'A', 'B', 2, 0), match(2, 'C', 'D', 0, 0)] });
+    const g = computeGroupTable(s, 'gA');
+    expect(g.rows.map((r) => r.team.id)).not.toContain('A');
+    expect(g.rows.find((r) => r.team.id === 'N')!.Pts).toBe(3);
+    expect(g.rows.find((r) => r.team.id === 'B')!.L).toBe(1);
+  });
+  it('expunge: results against the withdrawn team are removed', () => {
+    const old = { ...team('A'), status: 'withdrawn' as const, results_policy: 'expunge' as const };
+    const g = computeGroupTable(snapshot({ teams: [old, team('B'), team('C'), team('D')], matches: [match(1, 'A', 'B', 0, 2)] }), 'gA');
+    expect(g.rows.find((r) => r.team.id === 'B')!.P).toBe(0);
+  });
+  it('keep: opponents keep their result, withdrawn team not ranked', () => {
+    const old = { ...team('A'), status: 'withdrawn' as const, results_policy: 'keep' as const };
+    const g = computeGroupTable(snapshot({ teams: [old, team('B'), team('C'), team('D')], matches: [match(1, 'A', 'B', 0, 2)] }), 'gA');
+    expect(g.rows).toHaveLength(3);
+    expect(g.rows.find((r) => r.team.id === 'B')!.Pts).toBe(3);
+  });
+});
+

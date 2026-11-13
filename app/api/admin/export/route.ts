@@ -28,12 +28,12 @@ export async function GET(req: NextRequest) {
     }
   } else if (what === 'payments') {
     const [{ data: pays }, { data: tp }] = await Promise.all([sb.from('payments').select('*').order('created_at'), sb.from('team_private').select('team_id, reg_id, fee_total')]);
-    rows.push(['reg_id', 'team', 'amount', 'paid_on', 'method', 'trx_id', 'note', 'recorded_at']);
-    for (const p of pays ?? []) rows.push([tp?.find((x) => x.team_id === p.team_id)?.reg_id, team(p.team_id)?.name, p.amount, p.paid_on, p.method, p.trx_id, p.note, p.created_at]);
+    rows.push(['status', 'reg_id', 'team', 'amount', 'paid_on', 'method', 'trx_id', 'note', 'recorded_at']);
+    for (const p of pays ?? []) rows.push([p.voided_at ? 'void' : 'ok',tp?.find((x) => x.team_id === p.team_id)?.reg_id, team(p.team_id)?.name, p.amount, p.paid_on, p.method, p.trx_id, p.note, p.created_at]);
     rows.push([]); rows.push(['reg_id', 'team', 'fee', 'paid', 'due']);
     for (const t of snap.teams) {
       const fee = Number(tp?.find((x) => x.team_id === t.id)?.fee_total ?? 0);
-      const paid = (pays ?? []).filter((p) => p.team_id === t.id).reduce((s, p) => s + Number(p.amount), 0);
+      const paid = (pays ?? []).filter((p) => p.team_id === t.id && !p.voided_at).reduce((s, p) => s + Number(p.amount), 0);
       rows.push([tp?.find((x) => x.team_id === t.id)?.reg_id, t.name, fee, paid, fee - paid]);
     }
   } else {

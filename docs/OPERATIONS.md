@@ -76,6 +76,18 @@ The Vercel project `pitchside-beryl` builds this repo. Push to `main` → produc
 7. Awards: Admin → Awards → check suggestion → override if needed → **Publish**.
 8. Mistakes: edit/delete any event (before finalizing) or **Reopen**. Everything is in the Audit log.
 
+9. Ratings: in Match Control → Player ratings, rate each player 0–10 (− / + or type), then **Save ratings**. Toggle "Public" to show them on the match page. Admin → Ratings shows every player's match-by-match ratings and average (a guide for player of the tournament, not a decision).
+
+### Squad and team changes (nothing is ever deleted)
+- **Remove a player:** Teams & Rosters → player → *Remove from squad* (history kept; *Restore to squad* undoes it). **Add a player:** form under the roster (max 10 active).
+- **Replace a team mid-tournament:** Teams & Rosters → team → *Replace team*. Every match that hasn't started moves to the new team. Choose whether the old team's played results carry over to the new team or are removed from the standings. Then add the new squad.
+- **Withdraw a team:** *Withdraw team* → its remaining matches are cancelled (Matches → *Restore* brings one back); choose to keep or remove its played results.
+- **Add a team / fixture:** Teams & Rosters → *+ Add team*; Matches → *+ Add match*.
+- Removed goals/cards and voided payments stay in the database and the audit log.
+
+### End of tournament
+The Awards tab, champions podium, rising bracket and individual awards appear on the public site automatically once the final is finalized (or when Settings → Site mode = completed). Publish each award in Admin → Awards first.
+
 Two admins can work at once: events are separate rows; match state changes use a version check ("changed by X — reload").
 
 ## Backups

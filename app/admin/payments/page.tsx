@@ -6,7 +6,7 @@ import { confirmDialog } from '@/components/admin/Confirm';
 import { useAction } from '@/components/admin/useAction';
 import { supabaseBrowser } from '@/lib/supabase/client';
 
-type Pay = { id: string; team_id: string; amount: number; paid_on: string | null; method: string | null; trx_id: string | null; note: string | null; created_at: string };
+type Pay = { voided_at: string | null; id: string; team_id: string; amount: number; paid_on: string | null; method: string | null; trx_id: string | null; note: string | null; created_at: string };
 const tk = (n: number) => `৳${n.toLocaleString('en-US')}`;
 
 export default function PaymentsPage() {
@@ -25,9 +25,10 @@ export default function PaymentsPage() {
   useEffect(() => { void load(); }, [load]);
   if (!can('viewer')) return null;
   const owner = can('owner');
-  const paid = (tid: string) => pays.filter((p) => p.team_id === tid).reduce((s, p) => s + p.amount, 0);
+  const live = pays.filter((p) => !p.voided_at);
+  const paid = (tid: string) => live.filter((p) => p.team_id === tid).reduce((s, p) => s + p.amount, 0);
   const expected = snap.teams.reduce((s, t) => s + (fees[t.id] ?? 0), 0);
-  const collected = pays.reduce((s, p) => s + p.amount, 0);
+  const collected = live.reduce((s, p) => s + p.amount, 0);
   const tn = (id: string) => snap.teams.find((t) => t.id === id)?.display_name ?? '?';
   return (
     <>
@@ -75,8 +76,9 @@ export default function PaymentsPage() {
           <table className="ws-table" style={{ minWidth: '100%' }}>
             <thead><tr><th>DATE</th><th className="col-team">TEAM</th><th>AMOUNT</th><th>METHOD</th><th>TRXID</th><th>NOTE</th>{owner && <th />}</tr></thead>
             <tbody>{pays.map((p) => (
-              <tr key={p.id}><td>{p.paid_on ?? p.created_at.slice(0, 10)}</td><td className="col-team">{tn(p.team_id)}</td><td className="pts-cell">{tk(p.amount)}</td><td>{p.method}</td><td>{p.trx_id}</td><td style={{ fontSize: '0.75rem' }}>{p.note}</td>
-                {owner && <td><button type="button" className="btn-skew btn-danger-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.68rem' }} disabled={busy} onClick={async () => { if (await confirmDialog({ title: 'DELETE PAYMENT ENTRY', danger: true, body: `Delete ${tk(p.amount)} from ${tn(p.team_id)}? (Prefer recording a negative correction to keep history.)` })) { await run(() => sb.from('payments').delete().eq('id', p.id), 'Deleted'); void load(); } }}><span>DELETE</span></button></td>}
+              <tr key={p.id} style={p.voided_at ? { opacity: 0.45, textDecoration: 'line-through' } : undefined}><td>{p.paid_on ?? p.created_at.slice(0, 10)}</td><td className="col-team">{tn(p.team_id)}</td><td className="pts-cell">{tk(p.amount)}</td><td>{p.method}</td><td>{p.trx_id}</td><td style={{ fontSize: '0.75rem' }}>{p.note}</td>
+                {owner && <td>{p.voided_at ? <button type="button" className="btn-skew btn-cyan-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.68rem' }} disabled={busy} onClick={async () => { await run(() => sb.from('payments').update({ voided_at: null, voided_by: null }).eq('id', p.id), 'Restored'); void load(); }}><span>RESTORE</span></button>
+                  : <button type="button" className="btn-skew btn-danger-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.68rem' }} disabled={busy} onClick={async () => { if (await confirmDialog({ title: 'VOID PAYMENT ENTRY', danger: true, body: `Void ${tk(p.amount)} from ${tn(p.team_id)}? It stops counting but stays in the history (can be restored).` })) { await run(() => sb.from('payments').update({ voided_at: new Date().toISOString() }).eq('id', p.id), 'Voided'); void load(); } }}><span>VOID</span></button>}</td>}
               </tr>))}</tbody>
           </table>
         </div>
