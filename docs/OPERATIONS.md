@@ -85,6 +85,12 @@ The Vercel project `pitchside-beryl` builds this repo. Push to `main` → produc
 - **Add a team / fixture:** Teams & Rosters → *+ Add team*; Matches → *+ Add match*.
 - Removed goals/cards and voided payments stay in the database and the audit log.
 
+### Reset the tournament
+Admin → Settings → **Reset tournament** (owner): type `RESET` and re-enter your admin password (checked on the server). Every match goes back to Scheduled 0–0, knockout slots and the standings confirmation are cleared, awards are unpublished. Teams, players, private details, payments, groups, the schedule and settings are kept; nothing is hard-deleted and each match keeps “Restore last reset”.
+
+### Multiple tournaments
+Everything hangs off the `tournaments` table (settings, groups, teams → players, matches → events/ratings, awards, registrations all carry `tournament_id`). The site shows the tournament whose slug is in `NEXT_PUBLIC_TOURNAMENT_SLUG` (default `ws2026`).
+
 ### End of tournament
 The Awards tab, champions podium, rising bracket and individual awards appear on the public site automatically once the final is finalized (or when Settings → Site mode = completed). Publish each award in Admin → Awards first.
 

@@ -79,6 +79,21 @@ async function main() {
   const home2 = await get('/', false);
   ok(home2.text.includes('fx-track') && home2.text.includes('Next matches'), 'home has the fixtures carousel with labelled arrows');
 
+  console.log('Reset tournament (password re-check)');
+  const post = (body: unknown) => fetch(BASE + '/api/admin/reset-tournament', { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const wrong = await post({ tournamentId: t.id, confirm: 'RESET', password: 'definitely-wrong' });
+  ok(wrong.status === 401, `wrong password rejected (${wrong.status})`);
+  const stillFinal = (await sb.from('matches').select('finalized').eq('id', m1.id).single()).data!.finalized;
+  ok(stillFinal === true, 'wrong password changed nothing');
+  const noType = await post({ tournamentId: t.id, confirm: 'nope', password: need('UITEST_PASSWORD') });
+  ok(noType.status === 400, 'missing RESET confirmation rejected');
+  const good = await post({ tournamentId: t.id, confirm: 'RESET', password: need('UITEST_PASSWORD') });
+  ok(good.status === 200, `correct password resets (${good.status})`);
+  const after = (await sb.from('matches').select('status, finalized').eq('id', m1.id).single()).data!;
+  ok(after.status === 'scheduled' && !after.finalized, 'match back to scheduled after tournament reset');
+  const anonPost = await fetch(BASE + '/api/admin/reset-tournament', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}', redirect: 'manual' });
+  ok(anonPost.status === 401 || anonPost.status === 307, `no session → refused (${anonPost.status})`);
+
   console.log('Owner routes');
   const csv = await get('/api/admin/export?what=results');
   ok(csv.status === 200 && csv.text.includes('M01'), 'CSV export (results)');

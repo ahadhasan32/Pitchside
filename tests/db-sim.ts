@@ -244,6 +244,18 @@ async function main() {
     ok(nReset > 10 && left === 0 && koTeams === 0 && liveEv === 0, `clear all: ${nReset} matches reset, KO slots cleared, no live events`);
     ok((await q(`select count(*)::int c from teams where tournament_id=$1 and status='confirmed'`, [tid]))[0].c === 8, 'clear all: teams untouched');
 
+    console.log('Reset tournament');
+    await asSuper();
+    await q(`insert into awards(tournament_id,key,player_id,published) values ($1,'golden_boot',$2,true)`, [tid, P.A1[0]]);
+    await as('authenticated', scorer);
+    await expectErr('scorer cannot reset the tournament', () => q(`select admin_reset_tournament($1,'RESET')`, [tid]), /FORBIDDEN/);
+    await as('authenticated', owner);
+    await q(`select admin_reset_tournament($1,'RESET')`, [tid]);
+    await asSuper();
+    ok((await q(`select published from awards where tournament_id=$1`, [tid]))[0].published === false, 'reset tournament unpublishes awards');
+    ok((await q(`select count(*)::int c from matches where tournament_id=$1`, [tid]))[0].c === 15 && (await q(`select count(*)::int c from players p join teams t on t.id=p.team_id where t.tournament_id=$1`, [tid]))[0].c > 20, 'reset tournament keeps schedule, teams and players');
+    await as('authenticated', owner);
+
     console.log('Team restore');
     await expectErr('restore replaced team needs swap back', () => q(`select admin_team_restore($1,null,false)`, [X.X1]), /REPLACED: New FC/);
     await q(`select admin_team_restore($1,null,true)`, [X.X1]);

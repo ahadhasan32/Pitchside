@@ -91,29 +91,45 @@ export default function SettingsPage() {
 
 function ClearAll() {
   const snap = useSnap();
+  const { email, toast } = useAdmin();
   const { busy, run } = useAction();
-  const sb = supabaseBrowser();
   const [typed, setTyped] = useState('');
+  const [password, setPassword] = useState('');
   const [open, setOpen] = useState(false);
   const touched = snap.matches.filter((m) => m.status !== 'scheduled' || m.finalized || snap.events.some((e) => e.match_id === m.id) || snap.ratings.some((r) => r.match_id === m.id));
   const ev = snap.events.length, rt = snap.ratings.length;
   const ko = snap.matches.filter((m) => m.stage !== 'group' && (m.home_team_id || m.away_team_id)).length;
+  const pub = snap.awards.filter((a) => a.published).length;
+  const close = () => { setOpen(false); setTyped(''); setPassword(''); };
   return (
     <div className="ws-card" style={{ marginTop: '1rem', borderLeft: '4px solid var(--danger)' }}>
-      <div className="rule-sec-title"><span>🧹 CLEAR ALL TEST RESULTS</span></div>
+      <div className="rule-sec-title"><span>⚠️ RESET TOURNAMENT</span></div>
       <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)' }}>
-        Resets every match to Scheduled 0–0. Will clear: <strong>{touched.length}</strong> played/started match{touched.length === 1 ? '' : 'es'} ({touched.map((m) => m.code).join(', ') || 'none'}), <strong>{ev}</strong> goal/card event{ev === 1 ? '' : 's'}, <strong>{rt}</strong> rating{rt === 1 ? '' : 's'}, MVPs, lineups and finalized states{ko ? `, and the team slots of ${ko} knockout match${ko === 1 ? '' : 'es'}` : ''}.
-        Teams, players and payments are untouched. Everything is soft-deleted, logged, and each match keeps a “Restore last reset”.
+        Puts <strong>{snap.tournament.name}</strong> back to “ready to kick off”. Clears: <strong>{touched.length}</strong> played/started match{touched.length === 1 ? '' : 'es'} ({touched.map((m) => m.code).join(', ') || 'none'}), <strong>{ev}</strong> goal/card event{ev === 1 ? '' : 's'}, <strong>{rt}</strong> rating{rt === 1 ? '' : 's'}, MVPs, lineups, finalized states, the standings confirmation{ko ? `, the team slots of ${ko} knockout match${ko === 1 ? '' : 'es'}` : ''}{pub ? ` and ${pub} published award${pub === 1 ? '' : 's'}` : ''}.
+      </p>
+      <p style={{ fontSize: '0.85rem', color: 'var(--lime)', marginTop: '0.4rem' }}>
+        Kept: teams, players (incl. removed ones), private details, payments, groups, the full schedule and kick-off times, lot ranks and all settings.
+        Nothing is hard-deleted; each match keeps a “Restore last reset”, and the reset is in the audit log.
       </p>
       {!open ? (
-        <button type="button" className="btn-skew btn-danger-outline" style={{ marginTop: '0.6rem' }} disabled={touched.length === 0 && ko === 0} onClick={() => setOpen(true)}><span>CLEAR ALL TEST RESULTS…</span></button>
+        <button type="button" className="btn-skew btn-danger-outline" style={{ marginTop: '0.7rem' }} onClick={() => setOpen(true)}><span>RESET TOURNAMENT…</span></button>
       ) : (
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'end', flexWrap: 'wrap', marginTop: '0.6rem' }}>
-          <div><label className="form-label">TYPE RESET TO CONFIRM</label><input className="form-input" value={typed} onChange={(e) => setTyped(e.target.value.toUpperCase())} style={{ width: 160 }} /></div>
-          <button type="button" className="btn-skew btn-danger-outline" disabled={busy || typed !== 'RESET'}
-            onClick={async () => { const ok = await run(() => sb.rpc('admin_reset_all', { p_tournament: snap.tournament.id, p_confirm: 'RESET' }), 'All results cleared'); if (ok) { setOpen(false); setTyped(''); } }}><span>CLEAR EVERYTHING</span></button>
-          <button type="button" className="btn-skew btn-cyan-outline" onClick={() => { setOpen(false); setTyped(''); }}><span>CANCEL</span></button>
-        </div>
+        <form style={{ display: 'flex', gap: '0.6rem', alignItems: 'end', flexWrap: 'wrap', marginTop: '0.7rem' }} onSubmit={async (e) => {
+          e.preventDefault();
+          const ok = await run(async () => {
+            const r = await fetch('/api/admin/reset-tournament', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tournamentId: snap.tournament.id, confirm: typed, password }) });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok) return { error: { message: j.error ?? 'Reset failed' } };
+            toast(`Tournament reset — ${j.matches} match${j.matches === 1 ? '' : 'es'} back to scheduled`);
+          });
+          if (ok) close(); else setPassword('');
+        }}>
+          <div><label className="form-label">TYPE RESET</label><input className="form-input" value={typed} onChange={(e) => setTyped(e.target.value.toUpperCase())} style={{ width: 140 }} autoComplete="off" /></div>
+          <div><label className="form-label">YOUR ADMIN PASSWORD ({email})</label><input className="form-input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: 240 }} /></div>
+          <button type="submit" className="btn-skew btn-danger-outline" disabled={busy || typed !== 'RESET' || !password}><span>{busy ? 'RESETTING…' : 'RESET TOURNAMENT'}</span></button>
+          <button type="button" className="btn-skew btn-cyan-outline" onClick={close}><span>CANCEL</span></button>
+          <p style={{ width: '100%', fontSize: '0.74rem', color: 'var(--text-muted)' }}>Signed in with a magic link and never set a password? Set one first in <a href="/admin/account" style={{ color: 'var(--cyan)' }}>Account</a>.</p>
+        </form>
       )}
     </div>
   );
