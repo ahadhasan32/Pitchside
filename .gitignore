@@ -1,0 +1,24 @@
+# secrets
+.env
+.env*.local
+
+# dependencies / build
+node_modules/
+.next/
+out/
+build/
+coverage/
+
+# vercel
+.vercel
+
+# misc
+.DS_Store
+*.log
+npm-debug.log*
+*.tsbuildinfo
+next-env.d.ts
+
+# Private reference material (phones, payments). The GitHub repo is public: never commit this.
+wintershowdown/
+winter-showdown-claude-code-prompt.md
