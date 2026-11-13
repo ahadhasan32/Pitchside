@@ -30,7 +30,7 @@ function Countdown({ iso }: { iso: string }) {
   );
 }
 
-function Slot({ title, m, empty }: { title: string; m: Match | undefined; empty: string }) {
+function Slot({ title, m, empty, icon }: { title: string; m: Match | undefined; empty: string; icon: string }) {
   const snap = useSnap();
   const { player, group } = useLookups(snap);
   let scorers = '';
@@ -43,15 +43,13 @@ function Slot({ title, m, empty }: { title: string; m: Match | undefined; empty:
     scorers = [...by.entries()].map(([n, c]) => `${n} ${'⚽'.repeat(c)}`).join(' · ');
   }
   return (
-    <div>
+    <div className="slot">
       <div className="slot-title">{title}</div>
-      {m ? (
-        <>
-          <div className="slot-sub">{stageLabel(m, group(m.group_id)?.code)} — MATCH {String(m.match_no).padStart(2, '0')}</div>
-          <MatchCard m={m} snap={snap} compact />
-          {scorers && <div className="goal-list" style={{ marginTop: '0.4rem' }}>{scorers}</div>}
-        </>
-      ) : <div className="ws-card" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>{empty}</div>}
+      <div className="slot-sub">{m ? `${stageLabel(m, group(m.group_id)?.code)} — MATCH ${String(m.match_no).padStart(2, '0')}` : '\u00a0'}</div>
+      <div className="slot-body">
+        {m ? <MatchCard m={m} snap={snap} compact /> : <div className="ws-card slot-empty"><span className="slot-empty-icon" aria-hidden>{icon}</span><span>{empty}</span></div>}
+      </div>
+      {m && scorers && <div className="goal-list" style={{ marginTop: '0.4rem' }}>{scorers}</div>}
     </div>
   );
 }
@@ -99,9 +97,9 @@ export default function HomePage() {
 
       <SectionHead kicker="❄️ MATCH CENTRE" cyan="LIVE &" lime="MATCHES" />
       <div className="slots-3" style={{ marginBottom: '2rem' }}>
-        <Slot title={live.length > 1 ? `🔴 Live now (${live.length})` : '🔴 Live now'} m={live[0]} empty="No match live right now" />
-        <Slot title="✅ Last played" m={played[0]} empty="No results yet" />
-        <Slot title="⚡ Up next" m={upcoming[0]} empty={revealed ? 'Tournament complete' : 'No more matches'} />
+        <Slot title={live.length > 1 ? `🔴 Live now (${live.length})` : '🔴 Live now'} m={live[0]} empty="No match live right now" icon="⏸" />
+        <Slot title="✅ Last played" m={played[0]} empty="No results yet" icon="⏱" />
+        <Slot title="⚡ Up next" m={upcoming[0]} empty={revealed ? 'Tournament complete' : 'No more matches'} icon="🏁" />
       </div>
       {live.length > 1 && <div className="grid-2" style={{ marginBottom: '2rem' }}>{live.slice(1).map((m) => <MatchCard key={m.id} m={m} snap={snap} compact />)}</div>}
 

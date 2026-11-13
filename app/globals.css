@@ -1749,3 +1749,13 @@ html, body { overflow-x: clip; }
 .set-save { display: flex; justify-content: flex-end; padding-top: .3rem; }
 @media (max-width: 720px) { .set-row { grid-template-columns: 1fr; } .set-save { justify-content: stretch; } .set-save .btn-skew { width: 100%; } }
 .set-label { padding-top: .55rem; } @media (max-width: 720px) { .set-label { padding-top: 0; } }
+/* Match centre: three equal columns, cards top-aligned and equal height */
+.slots-3 { align-items: stretch; }
+.slot { display: flex; flex-direction: column; min-width: 0; }
+.slot-sub { min-height: 1.1rem; }
+.slot-body { flex: 1; display: flex; flex-direction: column; min-height: 180px; }
+.slot-body > a.match-card-link, .slot-body > .slot-empty { flex: 1; }
+.slot-body > a.match-card-link > .match-card { height: 100%; }
+.slot-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5rem; text-align: center; color: var(--text-muted); margin: 0; font-weight: 600; }
+.slot-empty-icon { font-size: 1.6rem; opacity: .6; }
+@media (max-width: 1000px) { .slot-body { min-height: 0; } .slot-empty { min-height: 110px; } }
