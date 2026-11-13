@@ -134,7 +134,7 @@ async function main() {
       const pos = POS[(posRaw ?? '').toLowerCase()];
       if (!pos) rep.unknownPositions.push(`${name} P${slot} ${pName}: "${posRaw}" → midfielder`);
       const age = ageRaw && /^\d{1,2}$/.test(ageRaw) ? Number(ageRaw) : null;
-      if (age != null && age >= 24) rep.flagged.push(`${name} P${slot} ${pName}: age ${age} (rule: under 24) — eligibility warning in admin`);
+      if (age != null && age > 24) rep.flagged.push(`${name} P${slot} ${pName}: over-age ${age} (max 24) — flagged in admin`);
       if (ageRaw && age == null) rep.flagged.push(`${name} P${slot} ${pName}: invalid age "${ageRaw}" stored as null`);
       if (photo) rep.skipped.push(`${name} P${slot}: photo cell present but photos are uploaded from admin`);
       const seedPlayer = seed?.squad.find((s) => normName(s.name) === normName(pName));

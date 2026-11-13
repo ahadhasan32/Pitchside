@@ -6,6 +6,8 @@ import { useAdmin } from '@/components/admin/AdminContext';
 import { TeamCrest, fmtTimeAmPm, placeholderName } from '@/components/public/bits';
 import { computeGroupTable, displayStatus } from '@/lib/tournament';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import { confirmDialog } from '@/components/admin/Confirm';
+import { useAction } from '@/components/admin/useAction';
 
 export default function Dashboard() {
   const snap = useSnap();
@@ -17,25 +19,39 @@ export default function Dashboard() {
   const toFinalize = sorted.filter((m) => m.status === 'full_time' && !m.finalized);
   const done = sorted.filter((m) => m.finalized).length;
   const tables = useMemo(() => snap.groups.map((g) => computeGroupTable(snap, g.id)), [snap]);
-  const [flags, setFlags] = useState<{ name: string; team: string; age: number }[]>([]);
+  const maxAge = snap.settings.max_eligible_age ?? 24;
+  const { busy, run } = useAction();
+  const [flags, setFlags] = useState<{ id: string; teamId: string; name: string; team: string; age: number }[]>([]);
   useEffect(() => {
     if (!can('owner') && !can('viewer')) return;
-    void supabaseBrowser().from('player_private').select('player_id, age').gte('age', 24).then(({ data }) => {
+    void supabaseBrowser().from('player_private').select('player_id, age').gt('age', maxAge).then(({ data }) => {
       setFlags((data ?? []).map((r) => {
         const p = snap.players.find((x) => x.id === r.player_id);
-        return { name: p?.name ?? '?', team: t(p?.team_id ?? null)?.display_name ?? '?', age: r.age as number };
+        return { id: r.player_id as string, teamId: p?.team_id ?? '', name: p?.name ?? '?', team: t(p?.team_id ?? null)?.display_name ?? '?', age: r.age as number };
       }));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snap.players.length]);
+  }, [snap.players.length, maxAge]);
 
-  const warnings: { text: string; href?: string }[] = [];
-  toFinalize.forEach((m) => warnings.push({ text: `M${String(m.match_no).padStart(2, '0')} is at full time but not finalized — standings ignore it until finalized.`, href: `/admin/matches/${m.id}` }));
+  const warnings: { text: React.ReactNode; href?: string; actions?: React.ReactNode }[] = [];
+  const btn = { padding: '0.25rem 0.7rem', fontSize: '0.72rem', minHeight: 34 } as const;
+  toFinalize.forEach((m) => warnings.push({
+    text: `${m.code} is at full time but not finalized (${t(m.home_team_id)?.display_name} ${m.home_score}–${m.away_score} ${t(m.away_team_id)?.display_name}) — standings ignore it until finalized.`,
+    actions: <>
+      <button type="button" className="btn-skew btn-lime" style={btn} disabled={busy || !can('scorer')} onClick={async () => {
+        if (await confirmDialog({ title: `FINALIZE ${m.code}`, body: `Finalize ${t(m.home_team_id)?.display_name} ${m.home_score}–${m.away_score} ${t(m.away_team_id)?.display_name}? It will count in the ${m.stage === 'group' ? 'standings' : 'bracket'}. Only do this if the result is real.` }))
+          await run(() => supabaseBrowser().rpc('admin_match_action', { p_match: m.id, p_action: 'finalize', p_expected_version: m.version }), `${m.code} finalized`);
+      }}><span>FINALIZE…</span></button>
+      <Link href={`/admin/matches/${m.id}?reset=1`} className="btn-skew btn-danger-outline" style={btn}><span>RESET MATCH…</span></Link>
+      <Link href={`/admin/matches/${m.id}`} className="btn-skew btn-cyan-outline" style={btn}><span>OPEN</span></Link>
+    </>,
+  }));
   sorted.filter((m) => m.details_incomplete).forEach((m) => warnings.push({ text: `M${String(m.match_no).padStart(2, '0')}: details incomplete (${m.events_home + m.events_away} of ${m.home_score + m.away_score} goals recorded).`, href: `/admin/matches/${m.id}` }));
   tables.filter((g) => g.complete && g.unresolved).forEach((g) => warnings.push({ text: `Group ${g.code}: tie needs organizer decision (set lot ranks).`, href: '/admin/knockout' }));
   if (snap.tournament.bracket_needs_review) warnings.push({ text: 'A group result changed after the semifinals were set — review the bracket.', href: '/admin/knockout' });
   if (tables.every((g) => g.complete) && !snap.matches.find((m) => m.code === 'SF1')?.home_team_id) warnings.push({ text: 'All group matches are final — confirm standings and generate the semifinals.', href: '/admin/knockout' });
-  if (flags.length) warnings.push({ text: `${flags.length} player(s) are 24+ (rule: under 24): ${flags.map((f) => `${f.name} (${f.team}, ${f.age})`).join(', ')}`, href: '/admin/teams' });
+  if (flags.length) warnings.push({ text: <>{flags.length} over-age player{flags.length === 1 ? '' : 's'} (max {maxAge}):{' '}
+    {flags.map((f, i) => <span key={f.id}>{i ? ', ' : ''}<Link href={`/admin/teams?team=${f.teamId}&player=${f.id}`} style={{ color: 'var(--warning)' }}>{f.name} ({f.team}, {f.age})</Link></span>)}</> });
 
   const card = (m: (typeof sorted)[number], label: string) => (
     <div className="ws-card lime-bottom">
@@ -75,7 +91,12 @@ export default function Dashboard() {
       <div className="ws-card" style={{ marginBottom: '1.25rem' }}>
         <div className="rule-sec-title"><span>⚠️ WARNINGS</span><span className="badge-skew badge-ko">{warnings.length}</span></div>
         {warnings.length === 0 ? <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>All clear.</p> : (
-          <ul className="rule-list">{warnings.map((w, i) => <li key={i}>{w.href ? <Link href={w.href} style={{ color: 'var(--warning)' }}>{w.text}</Link> : w.text}</li>)}</ul>
+          <ul className="rule-list">{warnings.map((w, i) => (
+            <li key={i}>
+              {w.href ? <Link href={w.href} style={{ color: 'var(--warning)' }}>{w.text}</Link> : <span style={{ color: 'var(--warning)' }}>{w.text}</span>}
+              {w.actions && <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', margin: '0.35rem 0 0.2rem' }}>{w.actions}</div>}
+            </li>
+          ))}</ul>
         )}
       </div>
       <Link href="/admin/matches" className="btn-skew btn-cyan-outline"><span>ALL 15 MATCHES →</span></Link>

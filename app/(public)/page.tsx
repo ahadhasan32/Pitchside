@@ -8,6 +8,7 @@ import { FinaleSection } from '@/components/public/Finale';
 import { awardsRevealed } from '@/components/public/Shell';
 import { computeGroupTable, stageLabel } from '@/lib/tournament';
 import type { Match } from '@/lib/types';
+import { FixturesCarousel } from '@/components/public/FixturesCarousel';
 
 function Countdown({ iso }: { iso: string }) {
   const [now, setNow] = useState<number | null>(null);
@@ -72,8 +73,8 @@ export default function HomePage() {
   return (
     <>
       <header className="ws-hero" style={started ? { minHeight: 'auto', paddingBottom: '1.2rem' } : undefined}>
-        <img className="hbg" src="/brand/hero-bg.jpg" alt="" />
         <div className="bar b1" /><div className="bar b2" />
+        <div className="hero-inner">
         <img className="tlogo" src="/brand/trivanta-logo.png" alt="TrIvanta" />
         <p className="pres">Presents</p>
         <h1 style={{ margin: 0, lineHeight: 0 }}><img className="wlogo" src="/brand/wordmark.webp" alt="Winter Showdown 2026" /></h1>
@@ -91,6 +92,7 @@ export default function HomePage() {
           <div><b>{goals}</b><span>Goals</span></div>
           <div><b>10K</b><span>Prizepool</span></div>
         </div>
+        </div>
       </header>
 
       {revealed && <FinaleSection snap={snap} />}
@@ -106,9 +108,7 @@ export default function HomePage() {
       <SectionHead kicker="❄️ 13 NOV 2026 · ALL TIMES PM" cyan="FIXTURES &" lime="RESULTS">
         <Link href="/fixtures" className="btn-skew btn-cyan-outline"><span>All fixtures →</span></Link>
       </SectionHead>
-      <div className="grid-2" style={{ marginBottom: '2rem' }}>
-        {[...played.slice(0, 2).reverse(), ...upcoming.slice(0, 4)].map((m) => <MatchCard key={m.id} m={m} snap={snap} compact />)}
-      </div>
+      <div style={{ marginBottom: '2rem' }}><FixturesCarousel /></div>
 
       <SectionHead kicker="❄️ TOP 2 OF EACH GROUP REACH THE SEMIS" cyan="GROUP" lime="STANDINGS">
         <Link href="/standings" className="btn-skew btn-cyan-outline"><span>Full tables →</span></Link>

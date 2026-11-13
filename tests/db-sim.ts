@@ -211,6 +211,47 @@ async function main() {
     const audit = await q(`select count(*)::int c, count(distinct actor_email)::int a from audit_log where entity='match_events' and actor_email like 'sim-%'`);
     ok(audit[0].c > 0, `audit log records event writes with actor (${audit[0].c} rows)`);
     await expectErr('last owner cannot be removed', () => q(`delete from admin_users where role='owner' and user_id not in ($1)`, [owner]).then(() => q(`delete from admin_users where user_id=$1`, [owner])), /LAST_OWNER/);
+    console.log('Reset / restore / void');
+    await as('authenticated', scorer);
+    await expectErr('reset group match blocked while knockouts were played', () => q(`select admin_match_reset($1,'M05')`, [M.M05]), /DEPENDENTS: .*FINAL \(finalized\)/);
+    await expectErr('reset semifinal blocked while the final was played', () => q(`select admin_match_reset($1,'SF1')`, [M.SF1]), /DEPENDENTS: .*FINAL/);
+    await expectErr('reset finalized match needs typed code', () => q(`select admin_match_reset($1,null)`, [M.FINAL]), /CONFIRM_REQUIRED: type FINAL/);
+    await q(`select admin_match_reset($1,'final')`, [M.FINAL]);
+    let f = (await q(`select m.status, m.finalized, s.home_score, s.away_score from matches m join match_scores s on s.match_id=m.id where m.id=$1`, [M.FINAL]))[0];
+    ok(f.status === 'scheduled' && !f.finalized && f.home_score === 0 && f.away_score === 0, 'reset: final back to scheduled 0–0');
+    ok((await q(`select count(*)::int c from match_events where match_id=$1 and deleted_at is not null and reset_batch is not null`, [M.FINAL]))[0].c === 1, 'reset: events soft-deleted with a reset batch');
+    await q(`select admin_match_reset_restore($1)`, [M.FINAL]);
+    f = (await q(`select m.status, m.finalized, s.home_score from matches m join match_scores s on s.match_id=m.id where m.id=$1`, [M.FINAL]))[0];
+    ok(f.finalized && f.home_score + 0 >= 0 && (await q(`select match_winner($1) w`, [M.FINAL]))[0].w === T.B1, 'restore last reset: final finalized again with the same winner');
+    await q(`select admin_match_reset($1,'FINAL')`, [M.FINAL]);
+    await q(`select admin_match_reset($1,'SF2')`, [M.SF2]);
+    ok((await q(`select away_team_id from matches where id=$1`, [M.FINAL]))[0].away_team_id === null, 'reset SF2 clears its slot in the (unplayed) final');
+    await q(`select admin_match_reset_restore($1)`, [M.SF2]);
+    ok((await q(`select away_team_id from matches where id=$1`, [M.FINAL]))[0].away_team_id === T.B1, 'restoring SF2 refills the final');
+    await q(`select admin_match_action($1,'start',null)`, [M.FINAL]);
+    await q(`select admin_event_save($1,$2,'goal',$3,$4)`, [randomUUID(), M.FINAL, T.B2, P.B2[1]]);
+    await expectErr('restore impossible once new events exist', () => q(`select admin_match_reset_restore($1)`, [M.FINAL]), /NOTHING_TO_RESTORE|NOT_RESTORABLE/);
+    await as('authenticated', owner);
+    await q(`select admin_match_void($1,'FINAL')`, [M.FINAL]);
+    ok((await q(`select status from matches where id=$1`, [M.FINAL]))[0].status === 'cancelled', 'void: match cancelled, history kept');
+    await q(`select admin_match_restore($1)`, [M.FINAL]);
+    ok((await q(`select status from matches where id=$1`, [M.FINAL]))[0].status === 'live', 'restore void: back to its previous state (live)');
+    await expectErr('clear all needs RESET', () => q(`select admin_reset_all($1,'reset')`, [tid]), /CONFIRM_REQUIRED/);
+    const nReset = (await q(`select admin_reset_all($1,'RESET') n`, [tid]))[0].n;
+    const left = (await q(`select count(*)::int c from matches where tournament_id=$1 and (status<>'scheduled' or finalized)`, [tid]))[0].c;
+    const koTeams = (await q(`select count(*)::int c from matches where tournament_id=$1 and stage<>'group' and home_team_id is not null`, [tid]))[0].c;
+    const liveEv = (await q(`select count(*)::int c from match_events e join matches m on m.id=e.match_id where m.tournament_id=$1 and e.deleted_at is null`, [tid]))[0].c;
+    ok(nReset > 10 && left === 0 && koTeams === 0 && liveEv === 0, `clear all: ${nReset} matches reset, KO slots cleared, no live events`);
+    ok((await q(`select count(*)::int c from teams where tournament_id=$1 and status='confirmed'`, [tid]))[0].c === 8, 'clear all: teams untouched');
+
+    console.log('Team restore');
+    await expectErr('restore replaced team needs swap back', () => q(`select admin_team_restore($1,null,false)`, [X.X1]), /REPLACED: New FC/);
+    await q(`select admin_team_restore($1,null,true)`, [X.X1]);
+    const xs = (await q(`select (select status from teams where id=$1) a, (select status from teams where id=$2) b, (select home_team_id from matches where id=$3) h`, [X.X1, nid, mB]))[0];
+    ok(xs.a === 'confirmed' && xs.b === 'withdrawn' && xs.h === X.X1, 'swap back: old team restored with its fixtures, replacement withdrawn');
+    await q(`select admin_team_restore($1,null,false)`, [X.X3]);
+    ok((await q(`select status from teams where id=$1`, [X.X3]))[0].status === 'confirmed', 'withdrawn team restored');
+
   } finally {
     await db.query('rollback');
     await db.end();

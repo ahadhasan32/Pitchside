@@ -35,7 +35,7 @@ export default function RegistrationsArchive() {
                 <table className="ws-table" style={{ minWidth: '100%' }}>
                   <thead><tr><th>SLOT</th><th className="col-team">PLAYER</th><th>POSITION</th><th>INSTITUTION</th><th>AGE</th><th>PHONE</th></tr></thead>
                   <tbody>{snap.players.filter((x) => x.team_id === t.id).sort((a, b) => (a.slot ?? 99) - (b.slot ?? 99)).map((x) => { const q = pp[x.id] ?? {}; const age = q.age as number | null; return (
-                    <tr key={x.id}><td>{x.slot ? `P${x.slot}` : 'added'}</td><td className="col-team">{x.name}</td><td>{x.position}</td><td>{String(q.institution ?? '')}</td><td style={{ color: age != null && age >= 24 ? 'var(--warning)' : undefined }}>{age ?? ''}{age != null && age >= 24 ? ' ⚠' : ''}</td><td>{String(q.phone ?? '')}</td></tr>); })}</tbody>
+                    <tr key={x.id}><td>{x.slot ? `P${x.slot}` : 'added'}</td><td className="col-team">{x.name}</td><td>{x.position}</td><td>{String(q.institution ?? '')}</td><td style={{ color: age != null && age > (snap.settings.max_eligible_age ?? 24) ? 'var(--warning)' : undefined }}>{age ?? ''}{age != null && age > (snap.settings.max_eligible_age ?? 24) ? ' ⚠ over-age' : ''}</td><td>{String(q.phone ?? '')}</td></tr>); })}</tbody>
                 </table>
               </div>
             </div>

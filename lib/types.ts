@@ -14,6 +14,7 @@ export interface Settings {
   knockout_tie_resolution: string; second_yellow_points: number; ratings_published_default: boolean;
   third_place_enabled: boolean; rating_min_matches: number; walkover_goals: number; golden_boot_tiebreak: string;
   stage_rules: Record<string, { normal: number; max_added: number }>;
+  max_eligible_age: number;
 }
 export interface Group { id: string; tournament_id: string; code: string; name: string }
 export interface Team {
@@ -33,7 +34,7 @@ export interface Match {
   result_type: ResultType; score_mode: 'events' | 'manual'; manual_home: number | null; manual_away: number | null;
   pen_home: number | null; pen_away: number | null; decided_winner_id: string | null; decision_reason: string | null;
   note: string | null; var_home: number; var_away: number; mvp_player_id: string | null; ratings_published: boolean;
-  imported_from: string | null; version: number; updated_at: string; updated_by: string | null;
+  imported_from: string | null; voided_from?: { status: string; finalized: boolean } | null; version: number; updated_at: string; updated_by: string | null;
   // merged from match_scores view
   home_score: number; away_score: number; events_home: number; events_away: number; details_incomplete: boolean;
 }

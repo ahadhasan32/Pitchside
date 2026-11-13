@@ -24,7 +24,7 @@ export default function SettingsPage() {
         site_mode: f.site_mode, registration_open: f.registration_open, banner_en: f.banner_en || null, banner_bn: f.banner_bn || null,
         tiebreak_order: f.tiebreak_order, knockout_tie_resolution: f.knockout_tie_resolution, second_yellow_points: Number(f.second_yellow_points),
         ratings_published_default: f.ratings_published_default, third_place_enabled: f.third_place_enabled, rating_min_matches: Number(f.rating_min_matches),
-        walkover_goals: Number(f.walkover_goals), stage_rules: f.stage_rules,
+        walkover_goals: Number(f.walkover_goals), stage_rules: f.stage_rules, max_eligible_age: Number(f.max_eligible_age) || 24,
       }).eq('tournament_id', s.tournament_id);
       if (r.error || !f.third_place_enabled || snap.matches.some((m) => m.code === 'THIRD')) return r;
       return sb.from('matches').insert({ tournament_id: s.tournament_id, code: 'THIRD', match_no: 16, stage: 'third_place', home_placeholder: 'L(SF1)', away_placeholder: 'L(SF2)', scheduled_at: '2026-11-13T17:30:00+06:00' });
@@ -43,6 +43,7 @@ export default function SettingsPage() {
           {row('KNOCKOUT TIE RESOLUTION', <select className="form-select" value={f.knockout_tie_resolution} onChange={(e) => setF({ ...f, knockout_tie_resolution: e.target.value })}><option value="penalties">penalty shootout (§14)</option><option value="organizer">organiser decision</option></select>)}
           {row('SECOND-YELLOW FAIR-PLAY POINTS', <input className="form-input" inputMode="numeric" value={f.second_yellow_points} onChange={(e) => setF({ ...f, second_yellow_points: Number(e.target.value.replace(/\D/g, '') || 0) })} />, 'Added to the first yellow (1). Default 2 → total 3, same as a red. Never double counted.')}
           {row('WALKOVER SCORE', <input className="form-input" inputMode="numeric" value={f.walkover_goals} onChange={(e) => setF({ ...f, walkover_goals: Number(e.target.value.replace(/\D/g, '') || 0) })} />, 'Goals awarded (no player credit).')}
+          {row('MAX ELIGIBLE AGE', <input className="form-input" inputMode="numeric" value={f.max_eligible_age} onChange={(e) => setF({ ...f, max_eligible_age: Number(e.target.value.replace(/\D/g, '') || 0) })} />, `Players aged ${f.max_eligible_age} or under are eligible; older players are flagged "over-age" in admin.`)}
           {row('TOP-RATED MINIMUM RATED MATCHES', <input className="form-input" inputMode="numeric" value={f.rating_min_matches} onChange={(e) => setF({ ...f, rating_min_matches: Number(e.target.value.replace(/\D/g, '') || 0) })} />)}
           {row('RATINGS PUBLISHED BY DEFAULT', <select className="form-select" value={String(f.ratings_published_default)} onChange={(e) => setF({ ...f, ratings_published_default: e.target.value === 'true' })}><option value="false">no (reveal per match)</option><option value="true">yes</option></select>)}
           {row('THIRD-PLACE MATCH', <select className="form-select" value={String(f.third_place_enabled)} onChange={(e) => setF({ ...f, third_place_enabled: e.target.value === 'true' })}><option value="false">off</option><option value="true">on</option></select>)}
@@ -74,6 +75,7 @@ export default function SettingsPage() {
         ))}
         <button type="button" className="btn-skew btn-lime" style={{ justifySelf: 'start' }} disabled={busy} onClick={save}><span>SAVE SETTINGS</span></button>
       </div>
+      <ClearAll />
       <div className="ws-card" style={{ marginTop: '1rem' }}>
         <div className="rule-sec-title"><span>BACKUPS & EXPORTS</span></div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -84,5 +86,35 @@ export default function SettingsPage() {
         <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>Full database backup: see docs/OPERATIONS.md (pg_dump before match day and after the final).</p>
       </div>
     </>
+  );
+}
+
+function ClearAll() {
+  const snap = useSnap();
+  const { busy, run } = useAction();
+  const sb = supabaseBrowser();
+  const [typed, setTyped] = useState('');
+  const [open, setOpen] = useState(false);
+  const touched = snap.matches.filter((m) => m.status !== 'scheduled' || m.finalized || snap.events.some((e) => e.match_id === m.id) || snap.ratings.some((r) => r.match_id === m.id));
+  const ev = snap.events.length, rt = snap.ratings.length;
+  const ko = snap.matches.filter((m) => m.stage !== 'group' && (m.home_team_id || m.away_team_id)).length;
+  return (
+    <div className="ws-card" style={{ marginTop: '1rem', borderLeft: '4px solid var(--danger)' }}>
+      <div className="rule-sec-title"><span>🧹 CLEAR ALL TEST RESULTS</span></div>
+      <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)' }}>
+        Resets every match to Scheduled 0–0. Will clear: <strong>{touched.length}</strong> played/started match{touched.length === 1 ? '' : 'es'} ({touched.map((m) => m.code).join(', ') || 'none'}), <strong>{ev}</strong> goal/card event{ev === 1 ? '' : 's'}, <strong>{rt}</strong> rating{rt === 1 ? '' : 's'}, MVPs, lineups and finalized states{ko ? `, and the team slots of ${ko} knockout match${ko === 1 ? '' : 'es'}` : ''}.
+        Teams, players and payments are untouched. Everything is soft-deleted, logged, and each match keeps a “Restore last reset”.
+      </p>
+      {!open ? (
+        <button type="button" className="btn-skew btn-danger-outline" style={{ marginTop: '0.6rem' }} disabled={touched.length === 0 && ko === 0} onClick={() => setOpen(true)}><span>CLEAR ALL TEST RESULTS…</span></button>
+      ) : (
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'end', flexWrap: 'wrap', marginTop: '0.6rem' }}>
+          <div><label className="form-label">TYPE RESET TO CONFIRM</label><input className="form-input" value={typed} onChange={(e) => setTyped(e.target.value.toUpperCase())} style={{ width: 160 }} /></div>
+          <button type="button" className="btn-skew btn-danger-outline" disabled={busy || typed !== 'RESET'}
+            onClick={async () => { const ok = await run(() => sb.rpc('admin_reset_all', { p_tournament: snap.tournament.id, p_confirm: 'RESET' }), 'All results cleared'); if (ok) { setOpen(false); setTyped(''); } }}><span>CLEAR EVERYTHING</span></button>
+          <button type="button" className="btn-skew btn-cyan-outline" onClick={() => { setOpen(false); setTyped(''); }}><span>CANCEL</span></button>
+        </div>
+      )}
+    </div>
   );
 }

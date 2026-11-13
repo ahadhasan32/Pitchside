@@ -19,11 +19,17 @@ export default function TeamsAdmin() {
   const sb = supabaseBrowser();
   const owner = can('owner');
   const seesPrivate = can('owner') || can('viewer');
-  const [sel, setSel] = useState<string>(snap.teams[0]?.id ?? '');
+  const [sel, setSel] = useState<string>(() => {
+    if (typeof window !== 'undefined') { const q = new URLSearchParams(window.location.search).get('team'); if (q) return q; }
+    return snap.teams.find((t) => t.status !== 'withdrawn')?.id ?? snap.teams[0]?.id ?? '';
+  });
+  useEffect(() => {
+    const pid = new URLSearchParams(window.location.search).get('player');
+    if (pid) setTimeout(() => document.getElementById(`player-${pid}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 400);
+  }, []);
   const [search, setSearch] = useState('');
   const [tp, setTp] = useState<Record<string, TeamPriv>>({});
   const [pp, setPp] = useState<Record<string, PlayerPriv>>({});
-  const [showInactive, setShowInactive] = useState(false);
 
   const loadPrivate = useCallback(async () => {
     const [a, b] = await Promise.all([sb.from('team_private').select('*'), sb.from('player_private').select('*')]);
@@ -53,11 +59,12 @@ export default function TeamsAdmin() {
         </div>
       )}
       <div className="filter-bar">
-        {snap.teams.map((t) => (
+        {snap.teams.filter((t) => t.status !== 'withdrawn').map((t) => (
           <button key={t.id} type="button" className={`filter-btn ${t.id === sel ? 'active' : ''}`} onClick={() => setSel(t.id)}><span style={t.status === 'withdrawn' ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}>{t.display_name}</span></button>
         ))}
         {owner && <button type="button" className={`filter-btn ${sel === 'new' ? 'active' : ''}`} onClick={() => setSel('new')}><span>+ ADD TEAM</span></button>}
       </div>
+      {owner && <WithdrawnTeams run={run} busy={busy} onRestored={(id) => setSel(id)} />}
       {sel === 'new' && owner && <AddTeam run={run} busy={busy} onDone={(id) => setSel(id)} />}
       {team && owner && <TeamActions team={team} run={run} busy={busy} onReplaced={(id) => setSel(id)} />}
       {team && <TeamEditor key={team.id + team.logo_url} team={team} priv={tp[team.id]} owner={owner} seesPrivate={seesPrivate} busy={busy} run={run} reload={loadPrivate} />}
@@ -65,16 +72,16 @@ export default function TeamsAdmin() {
         <div className="ws-card" style={{ marginTop: '1rem' }}>
           <div className="rule-sec-title">
             <span>ROSTER ({snap.players.filter((p) => p.team_id === team.id && p.active).length}/10)</span>
-            <label style={{ fontSize: '0.75rem', display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> show inactive</label>
           </div>
           <div style={{ display: 'grid', gap: '0.6rem' }}>
-            {snap.players.filter((p) => p.team_id === team.id && (showInactive || p.active)).sort((a, b) => (a.jersey ?? 99) - (b.jersey ?? 99)).map((p) => (
+            {snap.players.filter((p) => p.team_id === team.id && p.active).sort((a, b) => (a.jersey ?? 99) - (b.jersey ?? 99)).map((p) => (
               <PlayerEditor key={`${p.id}|${p.name}|${p.jersey}|${p.position}|${p.active}|${p.team_id}`} p={p} priv={pp[p.id]} teams={snap.teams} owner={owner} seesPrivate={seesPrivate} busy={busy} run={run} reload={loadPrivate} toast={toast} />
             ))}
           </div>
           {owner && <AddPlayer teamId={team.id} full={snap.players.filter((p) => p.team_id === team.id && p.active).length >= 10} run={run} busy={busy} />}
         </div>
       )}
+      {team && <RemovedPlayers team={team} owner={owner} run={run} busy={busy} />}
     </>
   );
 }
@@ -132,7 +139,7 @@ function TeamEditor({ team, priv, owner, seesPrivate, busy, run, reload }: { tea
   );
 }
 
-function PlayerEditor({ p, priv, teams, owner, seesPrivate, busy, run, reload, toast }: { p: Player; priv?: PlayerPriv; teams: Team[]; owner: boolean; seesPrivate: boolean; busy: boolean; run: Run; reload: () => Promise<void>; toast: (t: string, bad?: boolean) => void }) {
+function PlayerEditor({ p, priv, teams, owner, seesPrivate, busy, run, reload, toast }: { p: Player; priv?: PlayerPriv; teams: Team[]; owner: boolean; seesPrivate: boolean; busy: boolean; run: Run; reload: () => Promise<void>; toast: (t: string, bad?: boolean, action?: { label: string; run: () => void }) => void }) {
   const sb = supabaseBrowser();
   const [f, setF] = useState({ name: p.name, position: p.position, jersey: p.jersey?.toString() ?? '', team_id: p.team_id });
   const [x, setX] = useState({ institution: priv?.institution ?? '', age: priv?.age?.toString() ?? '', phone: priv?.phone ?? '' });
@@ -142,7 +149,9 @@ function PlayerEditor({ p, priv, teams, owner, seesPrivate, busy, run, reload, t
     if (!priv?.photo_path || !seesPrivate) return;
     void sb.storage.from('player-photos').createSignedUrl(priv.photo_path, 3600).then(({ data }) => setPhoto(data?.signedUrl ?? null));
   }, [priv?.photo_path, seesPrivate, sb]);
-  const flag = priv?.age != null && priv.age >= 24;
+  const snapP = useSnap();
+  const maxAge = snapP.settings.max_eligible_age ?? 24;
+  const flag = priv?.age != null && priv.age > maxAge;
   const save = async () => {
     if (f.name.trim() === '') return toast('Name required', true);
     const ok = await run(() => sb.from('players').update({ name: f.name.trim(), position: f.position, jersey: f.jersey === '' ? null : Number(f.jersey), team_id: f.team_id }).eq('id', p.id), 'Player saved');
@@ -154,12 +163,12 @@ function PlayerEditor({ p, priv, teams, owner, seesPrivate, busy, run, reload, t
     await reload();
   };
   return (
-    <div style={{ background: 'rgba(13,42,108,.6)', border: `1px solid ${flag ? 'var(--warning)' : 'rgba(0,229,255,.2)'}`, borderRadius: 10, padding: '0.6rem', opacity: p.active ? 1 : 0.55 }}>
+    <div id={`player-${p.id}`} style={{ background: 'rgba(13,42,108,.6)', border: `1px solid ${flag ? 'var(--warning)' : 'rgba(0,229,255,.2)'}`, borderRadius: 10, padding: '0.6rem', opacity: p.active ? 1 : 0.55 }}>
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
         {photo && <img src={photo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }} />}
         <strong>{p.name}</strong>
         {!p.active && <span className="mini-tag tag-exp">INACTIVE</span>}
-        {flag && <span className="mini-tag tag-susp">⚠ ELIGIBILITY: AGE {priv!.age} (RULE: UNDER 24)</span>}
+        {flag && <span className="mini-tag tag-susp">⚠ OVER-AGE: {priv!.age} (MAX {maxAge})</span>}
       </div>
       <div className="grid-4" style={{ gap: '0.4rem' }}>
         <input className="form-input" value={f.name} disabled={!owner} onChange={(e) => setF({ ...f, name: e.target.value })} aria-label="name" />
@@ -178,7 +187,9 @@ function PlayerEditor({ p, priv, teams, owner, seesPrivate, busy, run, reload, t
           <label className="btn-skew btn-cyan-outline" style={{ padding: '0.3rem 0.7rem', fontSize: '0.72rem', cursor: 'pointer' }}><span>PHOTO</span><input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && uploadPhoto(e.target.files[0])} /></label>
           <button type="button" className="btn-skew btn-danger-outline" style={{ padding: '0.3rem 0.7rem', fontSize: '0.72rem' }} disabled={busy} onClick={async () => {
             if (p.active && !(await confirmDialog({ title: 'REMOVE PLAYER', body: `Remove ${p.name} from the squad? Nothing is deleted: their goals, cards and ratings stay in the history, and you can restore them any time.`, danger: true, confirmLabel: 'REMOVE' }))) return;
-            await run(() => sb.from('players').update({ active: !p.active }).eq('id', p.id), p.active ? 'Player removed from squad' : 'Player restored');
+            const wasActive = p.active;
+            const ok = await run(() => sb.from('players').update({ active: !p.active }).eq('id', p.id), wasActive ? undefined : 'Player restored');
+            if (ok && wasActive) toast(`${p.name} removed from the squad`, false, { label: 'UNDO', run: () => void run(() => sb.from('players').update({ active: true }).eq('id', p.id), `${p.name} restored`) });
           }}><span>{p.active ? 'REMOVE FROM SQUAD' : 'RESTORE TO SQUAD'}</span></button>
         </div>
       )}
@@ -225,6 +236,7 @@ function AddTeam({ run, busy, onDone }: { run: Run; busy: boolean; onDone: (id: 
 
 function TeamActions({ team, run, busy, onReplaced }: { team: Team; run: Run; busy: boolean; onReplaced: (id: string) => void }) {
   const snap = useSnap();
+  const { toast } = useAdmin();
   const sb = supabaseBrowser();
   const [mode, setMode] = useState<'' | 'replace' | 'withdraw'>('');
   const [f, setF] = useState({ name: '', short: '', color: team.color, transfer: true });
@@ -279,10 +291,129 @@ function TeamActions({ team, run, busy, onReplaced }: { team: Team; run: Run; bu
           </>}
           <button type="button" className="btn-skew btn-danger-outline" style={{ justifySelf: 'start' }} disabled={busy} onClick={async () => {
             if (await confirmDialog({ title: 'WITHDRAW TEAM', danger: true, confirmLabel: 'WITHDRAW', body: `Withdraw ${team.display_name} and cancel ${future.length} remaining match(es)?` }))
-              await run(() => sb.rpc('admin_team_withdraw', { p_team: team.id, p_policy: policy }), 'Team withdrawn');
+              if (await run(() => sb.rpc('admin_team_withdraw', { p_team: team.id, p_policy: policy })))
+                toast(`${team.display_name} withdrawn`, false, { label: 'UNDO', run: () => void run(() => sb.rpc('admin_team_restore', { p_team: team.id, p_group: null, p_swap_back: false }), `${team.display_name} restored`) });
           }}><span>WITHDRAW TEAM</span></button>
         </div>
       )}
+    </div>
+  );
+}
+
+function RemovedPlayers({ team, owner, run, busy }: { team: Team; owner: boolean; run: Run; busy: boolean }) {
+  const snap = useSnap();
+  const sb = supabaseBrowser();
+  const removed = snap.players.filter((p) => p.team_id === team.id && !p.active);
+  const activeList = snap.players.filter((p) => p.team_id === team.id && p.active);
+  const [fix, setFix] = useState<Record<string, string>>({});
+  const [problem, setProblem] = useState<Record<string, 'full' | 'jersey' | undefined>>({});
+  if (removed.length === 0) return null;
+  const restore = async (p: Player) => {
+    if (activeList.length >= 10) return setProblem({ ...problem, [p.id]: 'full' });
+    const jersey = fix[p.id] !== undefined ? (fix[p.id] === '' ? null : Number(fix[p.id])) : p.jersey;
+    if (jersey != null && activeList.some((a) => a.jersey === jersey)) { setFix({ ...fix, [p.id]: fix[p.id] ?? '' }); return setProblem({ ...problem, [p.id]: 'jersey' }); }
+    const ok = await run(() => sb.from('players').update({ active: true, jersey }).eq('id', p.id), `${p.name} restored to the squad`);
+    if (ok) setProblem({ ...problem, [p.id]: undefined });
+  };
+  return (
+    <div className="ws-card" style={{ marginTop: '1rem', borderLeft: '4px solid var(--warning)' }}>
+      <div className="rule-sec-title"><span>REMOVED PLAYERS ({removed.length})</span></div>
+      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Removed players keep all their stats, ratings, jersey number and private details. Restore puts them back in the squad.</p>
+      <div style={{ display: 'grid', gap: '0.5rem' }}>
+        {removed.map((p) => {
+          const taken = activeList.find((a) => a.jersey === p.jersey);
+          return (
+            <div key={p.id} id={`player-${p.id}`} style={{ background: 'rgba(13,42,108,.6)', border: '1px solid var(--bd)', padding: '0.5rem 0.6rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ flex: 1, minWidth: 160 }}><strong>{p.name}</strong> <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>#{p.jersey ?? '–'} · {p.position}</span></span>
+                {owner && <button type="button" className="btn-skew btn-lime" style={{ minHeight: 40 }} disabled={busy} onClick={() => restore(p)}><span>⟲ RESTORE</span></button>}
+              </div>
+              {problem[p.id] === 'full' && (
+                <div style={{ marginTop: '0.4rem', fontSize: '0.84rem', color: 'var(--warning)' }}>
+                  Squad is full (10/10 active). Remove someone first, then restore {p.name}:
+                  <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
+                    {activeList.map((a) => (
+                      <button key={a.id} type="button" className="filter-btn" disabled={busy} onClick={async () => {
+                        if (await confirmDialog({ title: 'SWAP PLAYERS', body: `Remove ${a.name} from the squad and restore ${p.name}?` })) {
+                          const ok = await run(async () => { const r = await sb.from('players').update({ active: false }).eq('id', a.id); if (r.error) return r; return sb.from('players').update({ active: true, jersey: activeList.some((x) => x.id !== a.id && x.jersey === p.jersey) ? null : p.jersey }).eq('id', p.id); }, `${a.name} removed, ${p.name} restored`);
+                          if (ok) setProblem({ ...problem, [p.id]: undefined });
+                        }
+                      }}><span>✕ {a.jersey != null ? `#${a.jersey} ` : ''}{a.name}</span></button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {problem[p.id] === 'jersey' && (
+                <div style={{ marginTop: '0.4rem', fontSize: '0.84rem', color: 'var(--warning)', display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  Jersey #{p.jersey} is now worn by {taken?.name ?? 'another player'}. Pick another number (or leave empty):
+                  <input className="form-input" inputMode="numeric" style={{ width: 80 }} value={fix[p.id] ?? ''} onChange={(e) => setFix({ ...fix, [p.id]: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
+                  <button type="button" className="btn-skew btn-lime" disabled={busy} onClick={() => restore(p)}><span>RESTORE WITH THIS NUMBER</span></button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function WithdrawnTeams({ run, busy, onRestored }: { run: Run; busy: boolean; onRestored: (id: string) => void }) {
+  const snap = useSnap();
+  const sb = supabaseBrowser();
+  const { toast } = useAdmin();
+  const list = snap.teams.filter((t) => t.status === 'withdrawn');
+  const [issue, setIssue] = useState<Record<string, { kind: 'replaced' | 'full'; text: string } | undefined>>({});
+  const [group, setGroup] = useState<Record<string, string>>({});
+  if (list.length === 0) return null;
+  const attempt = async (t: Team, swap: boolean, gid: string | null) => {
+    const r = await sb.rpc('admin_team_restore', { p_team: t.id, p_group: gid, p_swap_back: swap });
+    if (r.error) {
+      const msg = r.error.message;
+      if (msg.startsWith('REPLACED')) return setIssue({ ...issue, [t.id]: { kind: 'replaced', text: msg.replace(/^REPLACED: /, '') } });
+      if (msg.startsWith('GROUP_FULL')) return setIssue({ ...issue, [t.id]: { kind: 'full', text: msg.replace(/^GROUP_FULL: /, '') } });
+      return toast(msg.replace(/^[A-Z_]+: /, ''), true);
+    }
+    toast(`${t.display_name} restored with its roster and fixtures`);
+    setIssue({ ...issue, [t.id]: undefined });
+    await run(async () => undefined);
+    onRestored(t.id);
+  };
+  return (
+    <div className="ws-card" style={{ marginBottom: '1rem', borderLeft: '4px solid var(--warning)' }}>
+      <div className="rule-sec-title"><span>WITHDRAWN TEAMS ({list.length})</span></div>
+      <div style={{ display: 'grid', gap: '0.5rem' }}>
+        {list.map((t) => {
+          const succ = snap.teams.find((x) => x.replaces_team_id === t.id && x.status !== 'withdrawn');
+          const is = issue[t.id];
+          return (
+            <div key={t.id} style={{ background: 'rgba(13,42,108,.6)', border: '1px solid var(--bd)', padding: '0.5rem 0.6rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <TeamCrest team={t} size={28} />
+                <span style={{ flex: 1, minWidth: 160 }}><strong>{t.display_name}</strong>{succ && <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}> · replaced by {succ.display_name}</span>}</span>
+                <button type="button" className="btn-skew btn-lime" style={{ minHeight: 40 }} disabled={busy} onClick={() => attempt(t, false, null)}><span>⟲ RESTORE</span></button>
+              </div>
+              {is?.kind === 'replaced' && (
+                <div style={{ marginTop: '0.4rem', fontSize: '0.84rem', color: 'var(--warning)', display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {is.text}
+                  <button type="button" className="btn-skew btn-danger-outline" disabled={busy} onClick={async () => {
+                    if (await confirmDialog({ title: 'SWAP BACK', danger: true, body: `Restore ${t.display_name}, give it back its remaining fixtures and withdraw ${succ?.display_name ?? 'the replacement'}? Nothing is deleted.` })) await attempt(t, true, null);
+                  }}><span>SWAP BACK</span></button>
+                </div>
+              )}
+              {is?.kind === 'full' && (
+                <div style={{ marginTop: '0.4rem', fontSize: '0.84rem', color: 'var(--warning)', display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {is.text}
+                  <select className="form-select" style={{ width: 140 }} value={group[t.id] ?? ''} onChange={(e) => setGroup({ ...group, [t.id]: e.target.value })}>
+                    <option value="">Pick group…</option>{snap.groups.map((g) => <option key={g.id} value={g.id}>Group {g.code}</option>)}
+                  </select>
+                  <button type="button" className="btn-skew btn-lime" disabled={busy || !group[t.id]} onClick={() => attempt(t, !!succ, group[t.id])}><span>RESTORE INTO GROUP</span></button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

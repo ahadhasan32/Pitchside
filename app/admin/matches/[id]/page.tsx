@@ -5,6 +5,7 @@ import { useSnap } from '@/components/public/LiveProvider';
 import { useAdmin } from '@/components/admin/AdminContext';
 import { confirmDialog } from '@/components/admin/Confirm';
 import { useAction } from '@/components/admin/useAction';
+import { ResetVoidControls } from '@/components/admin/ResetVoid';
 import { BigLogo, TeamCrest, cardIcon, fmtTimeAmPm, placeholderName } from '@/components/public/bits';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { computeSuspensions, displayStatus, matchWinnerId, stageLabel } from '@/lib/tournament';
@@ -15,8 +16,9 @@ const CARD_LABEL: Record<string, string> = { yellow: '🟨 Yellow', second_yello
 
 type Draft = { id: string; kind: 'goal' | 'card'; forTeam: string; ownGoal: boolean; type: EventType; player: string; assist: string; minute: string; editing: boolean };
 
-export default function MatchControl({ params }: { params: Promise<{ id: string }> }) {
+export default function MatchControl({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ reset?: string }> }) {
   const { id } = use(params);
+  const sp = use(searchParams);
   const snap = useSnap();
   const { can, toast } = useAdmin();
   const { busy, run } = useAction();
@@ -125,7 +127,7 @@ export default function MatchControl({ params }: { params: Promise<{ id: string 
       <section className={`ws-card lime-bottom match-hero ${m.status === 'live' ? 'is-live' : ''}`} style={{ marginBottom: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.6rem' }}>
           <span className={`badge-skew ${isKO ? 'badge-ko' : g === 'A' ? 'badge-group-a' : 'badge-group-b'}`}>{stageLabel(m, g)} · M{String(m.match_no).padStart(2, '0')}</span>
-          <span className={`status-pill ${status === 'LIVE' ? 'status-live' : status === 'FT' || status === 'FULL TIME' ? 'status-finished' : 'status-upcoming'}`}>{status === 'FT' ? 'FINALIZED' : status}</span>
+          <span className={`status-pill ${status === 'LIVE' ? 'status-live' : status === 'FT' || status === 'FULL TIME' ? 'status-finished' : 'status-upcoming'}`}>{status === 'FT' ? 'FINALIZED' : status === 'CANCELLED' ? 'VOID' : status}</span>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{fmtTimeAmPm(m.scheduled_at)}</span>
         </div>
         <div className="match-hero-row">
@@ -163,9 +165,7 @@ export default function MatchControl({ params }: { params: Promise<{ id: string 
               <button type="button" className="btn-skew btn-cyan-outline" style={{ minHeight: 48 }} disabled={busy}
                 onClick={() => action('reopen', 'REOPEN', { title: 'REOPEN MATCH', danger: true, body: locked ? <>Reopen this finalized match? It stops counting in standings/bracket until finalized again.{m.stage === 'group' ? ' If the semifinals are already set you will be asked to review the bracket.' : ''}</> : 'Put this match back to LIVE?' })}><span>↺ REOPEN</span></button>
             )}
-            {m.status === 'live' && evs.length === 0 && (
-              <button type="button" className="btn-skew btn-cyan-outline" disabled={busy} onClick={() => action('unstart', 'UNDO START', { title: 'UNDO START', body: 'Set this match back to scheduled (only possible with no events)?' })}><span>UNDO START</span></button>
-            )}
+            <ResetVoidControls m={m} autoOpen={sp.reset === '1'} />
             <button type="button" className="btn-skew btn-cyan-outline" onClick={() => setShowDetails((v) => !v)}><span>⚙ MATCH DETAILS</span></button>
           </div>
         )}

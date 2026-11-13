@@ -24,7 +24,7 @@ export function ev(matchId: string, type: MatchEvent['type'], teamId: string, pl
 export function snapshot(p: Partial<Snapshot>): Snapshot {
   return {
     tournament: { id: 't', slug: 'test', name: 'T', starts_at: null, venue: null, is_test: true, groups_confirmed_at: null, bracket_needs_review: false },
-    settings: { tournament_id: 't', site_mode: 'live', registration_open: false, banner_en: null, banner_bn: null, tiebreak_order: ['gd', 'gf', 'h2h', 'fairplay', 'lot'], knockout_tie_resolution: 'penalties', second_yellow_points: 2, ratings_published_default: false, third_place_enabled: false, rating_min_matches: 2, walkover_goals: 3, golden_boot_tiebreak: 'x', stage_rules: { group: { normal: 10, max_added: 2 } } },
+    settings: { tournament_id: 't', site_mode: 'live', registration_open: false, banner_en: null, banner_bn: null, tiebreak_order: ['gd', 'gf', 'h2h', 'fairplay', 'lot'], knockout_tie_resolution: 'penalties', second_yellow_points: 2, ratings_published_default: false, third_place_enabled: false, rating_min_matches: 2, walkover_goals: 3, golden_boot_tiebreak: 'x', stage_rules: { group: { normal: 10, max_added: 2 } }, max_eligible_age: 24 },
     groups: [{ id: 'gA', tournament_id: 't', code: 'A', name: 'Group A' }],
     teams: [], players: [], matches: [], events: [], ratings: [], lineups: [], awards: [], ...p,
   };

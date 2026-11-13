@@ -2,10 +2,12 @@
 import { useEffect, useState } from 'react';
 import { SectionHead } from '@/components/public/bits';
 import { Rulebook } from '@/components/public/Rulebook';
-import { TERMS_BN, TERMS_EN } from '@/content/terms';
+import { TERMS_BN, TERMS_EN, withMaxAge } from '@/content/terms';
+import { useSnap } from '@/components/public/LiveProvider';
 
 export default function RulesPage() {
   const [lang, setLang] = useState<'en' | 'bn'>('en');
+  const maxAge = useSnap().settings.max_eligible_age ?? 24;
   useEffect(() => { if (window.location.hash === '#terms-bn') setLang('bn'); }, []);
   return (
     <>
@@ -20,7 +22,7 @@ export default function RulesPage() {
             <button type="button" className={`filter-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}><span>ENGLISH</span></button>
             <button type="button" className={`filter-btn ${lang === 'bn' ? 'active' : ''}`} onClick={() => setLang('bn')}><span className="bn">বাংলা</span></button>
           </div>
-          <div className="tc-body" lang={lang} dangerouslySetInnerHTML={{ __html: lang === 'en' ? TERMS_EN : TERMS_BN }} />
+          <div className="tc-body" lang={lang} dangerouslySetInnerHTML={{ __html: withMaxAge(lang === 'en' ? TERMS_EN : TERMS_BN, maxAge) }} />
         </div>
       </div>
     </>

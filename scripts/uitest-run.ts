@@ -65,6 +65,20 @@ async function main() {
   const anonR2 = await createClient(url, need('NEXT_PUBLIC_SUPABASE_ANON_KEY')).from('player_match_ratings').select('*').eq('match_id', m1.id);
   ok((anonR2.data ?? []).length === 1, 'published rating visible to anon');
 
+  console.log('Reset / restore');
+  const mc2 = await get(`/admin/matches/${m1.id}`);
+  ok(mc2.text.includes('RESET MATCH') && mc2.text.includes('VOID MATCH'), 'finalized match shows RESET MATCH and VOID MATCH');
+  await rpc('admin_match_reset', { p_match: m1.id, p_confirm: m1.code });
+  const afterReset = (await sb.from('match_scores').select('*').eq('match_id', m1.id).single()).data!;
+  ok(afterReset.home_score === 0 && afterReset.away_score === 0, 'reset via API: 0–0');
+  const mc3 = await get(`/admin/matches/${m1.id}`);
+  ok(mc3.text.includes('START MATCH'), 'reset match is startable again');
+  await rpc('admin_match_reset_restore', { p_match: m1.id });
+  const afterRestore = (await sb.from('match_scores').select('*').eq('match_id', m1.id).single()).data!;
+  ok(afterRestore.home_score === 1 && afterRestore.away_score === 1, 'restore last reset brings back 1–1');
+  const home2 = await get('/', false);
+  ok(home2.text.includes('fx-track') && home2.text.includes('Next matches'), 'home has the fixtures carousel with labelled arrows');
+
   console.log('Owner routes');
   const csv = await get('/api/admin/export?what=results');
   ok(csv.status === 200 && csv.text.includes('M01'), 'CSV export (results)');
