@@ -1727,3 +1727,25 @@ html, body { overflow-x: clip; }
 .fx-nav-mobile .fx-arrow { display: inline-block; }
 .modal-panel { text-align: left; max-height: calc(100dvh - 1.5rem); overflow-y: auto; clip-path: none; }
 .modal-backdrop.open { display: flex; }
+
+/* Admin settings: one setting per line — name & explanation left, control right */
+.set-card { display: grid; gap: 1.4rem; }
+.set-title { font-size: 1.05rem; color: var(--lime); text-transform: uppercase; letter-spacing: .04em; padding-bottom: .4rem; border-bottom: 2px solid var(--lime); margin-bottom: .2rem; }
+.set-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 340px); gap: .6rem 1.5rem; align-items: start; padding: .75rem 0; border-bottom: 1px solid rgba(42, 86, 192, .55); }
+.set-row:last-child { border-bottom: 0; }
+.set-name { font-weight: 800; font-size: .92rem; color: var(--text-white); }
+.set-hint { font-size: .76rem; color: var(--text-muted); margin-top: .15rem; line-height: 1.4; }
+.set-control { min-width: 0; }
+.set-control > .form-input, .set-control > .form-select { width: 100%; height: 42px; }
+.set-control > .form-input.set-num { width: 110px; }
+.set-num { text-align: center; height: 38px; padding: .3rem; }
+.set-stages, .set-tb { display: grid; gap: .4rem; }
+.set-stage { display: grid; grid-template-columns: 82px 56px auto 56px auto; gap: .35rem; align-items: center; font-size: .8rem; }
+.set-stage .set-num { width: 56px; }
+.set-stage-name { font-weight: 800; text-transform: capitalize; }
+.set-unit { color: var(--text-muted); white-space: nowrap; }
+.set-tb-row { display: flex; gap: .45rem; align-items: center; font-size: .86rem; }
+.set-tb-n { width: 24px; height: 24px; display: grid; place-items: center; background: var(--lime); color: var(--ink); font-weight: 900; font-style: italic; transform: skewX(-10deg); }
+.set-save { display: flex; justify-content: flex-end; padding-top: .3rem; }
+@media (max-width: 720px) { .set-row { grid-template-columns: 1fr; } .set-save { justify-content: stretch; } .set-save .btn-skew { width: 100%; } }
+.set-label { padding-top: .55rem; } @media (max-width: 720px) { .set-label { padding-top: 0; } }

@@ -30,50 +30,63 @@ export default function SettingsPage() {
       return sb.from('matches').insert({ tournament_id: s.tournament_id, code: 'THIRD', match_no: 16, stage: 'third_place', home_placeholder: 'L(SF1)', away_placeholder: 'L(SF2)', scheduled_at: '2026-11-13T17:30:00+06:00' });
     }, 'Settings saved');
   };
-  const row = (label: string, el: React.ReactNode, hint?: string) => (
-    <div style={{ display: 'grid', gap: '0.25rem' }}><label className="form-label">{label}</label>{el}{hint && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{hint}</span>}</div>
+  const row = (label: string, el: React.ReactNode, hint?: React.ReactNode) => (
+    <div className="set-row">
+      <div className="set-label"><div className="set-name">{label}</div>{hint && <div className="set-hint">{hint}</div>}</div>
+      <div className="set-control">{el}</div>
+    </div>
+  );
+  const section = (title: string, children: React.ReactNode) => (
+    <section className="set-section"><h3 className="set-title">{title}</h3>{children}</section>
   );
   return (
     <>
       <div className="section-head"><div className="section-title-wrap"><div className="section-kicker">⚙️ OWNER SETTINGS</div><h2 className="section-title"><span className="word-cyan">TOURNAMENT</span> <span className="word-lime">SETTINGS</span></h2><div className="section-underline" /></div></div>
-      <div className="ws-card lime-bottom" style={{ display: 'grid', gap: '1rem' }}>
-        <div className="grid-3" style={{ gap: '0.8rem' }}>
-          {row('SITE MODE', <select className="form-select" value={f.site_mode} onChange={(e) => setF({ ...f, site_mode: e.target.value as typeof f.site_mode })}><option value="pre">pre-tournament</option><option value="live">live</option><option value="completed">completed</option></select>, 'Countdown shows until first kick-off unless completed.')}
-          {row('REGISTRATION', <select className="form-select" value={String(f.registration_open)} onChange={(e) => setF({ ...f, registration_open: e.target.value === 'true' })}><option value="false">closed</option><option value="true">open</option></select>)}
-          {row('KNOCKOUT TIE RESOLUTION', <select className="form-select" value={f.knockout_tie_resolution} onChange={(e) => setF({ ...f, knockout_tie_resolution: e.target.value })}><option value="penalties">penalty shootout (§14)</option><option value="organizer">organiser decision</option></select>)}
-          {row('SECOND-YELLOW FAIR-PLAY POINTS', <input className="form-input" inputMode="numeric" value={f.second_yellow_points} onChange={(e) => setF({ ...f, second_yellow_points: Number(e.target.value.replace(/\D/g, '') || 0) })} />, 'Added to the first yellow (1). Default 2 → total 3, same as a red. Never double counted.')}
-          {row('WALKOVER SCORE', <input className="form-input" inputMode="numeric" value={f.walkover_goals} onChange={(e) => setF({ ...f, walkover_goals: Number(e.target.value.replace(/\D/g, '') || 0) })} />, 'Goals awarded (no player credit).')}
-          {row('MAX ELIGIBLE AGE', <input className="form-input" inputMode="numeric" value={f.max_eligible_age} onChange={(e) => setF({ ...f, max_eligible_age: Number(e.target.value.replace(/\D/g, '') || 0) })} />, `Players aged ${f.max_eligible_age} or under are eligible; older players are flagged "over-age" in admin.`)}
-          {row('TOP-RATED MINIMUM RATED MATCHES', <input className="form-input" inputMode="numeric" value={f.rating_min_matches} onChange={(e) => setF({ ...f, rating_min_matches: Number(e.target.value.replace(/\D/g, '') || 0) })} />)}
-          {row('RATINGS PUBLISHED BY DEFAULT', <select className="form-select" value={String(f.ratings_published_default)} onChange={(e) => setF({ ...f, ratings_published_default: e.target.value === 'true' })}><option value="false">no (reveal per match)</option><option value="true">yes</option></select>)}
-          {row('THIRD-PLACE MATCH', <select className="form-select" value={String(f.third_place_enabled)} onChange={(e) => setF({ ...f, third_place_enabled: e.target.value === 'true' })}><option value="false">off</option><option value="true">on</option></select>)}
-        </div>
-        {row('ANNOUNCEMENT BANNER (ENGLISH)', <input className="form-input" value={f.banner_en} onChange={(e) => setF({ ...f, banner_en: e.target.value })} placeholder="Shown on top of every public page" />)}
-        {row('ANNOUNCEMENT BANNER (বাংলা)', <input className="form-input bn" lang="bn" value={f.banner_bn} onChange={(e) => setF({ ...f, banner_bn: e.target.value })} />)}
-        {row('TIE-BREAK ORDER (AFTER POINTS)', (
-          <div style={{ display: 'grid', gap: '0.3rem', maxWidth: 360 }}>
-            {f.tiebreak_order.map((k, i) => (
-              <div key={k} style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                <span style={{ minWidth: 20 }}>{i + 1}.</span><span style={{ flex: 1 }}>{TB[k] ?? k}</span>
-                <button type="button" className="filter-btn" onClick={() => move(i, -1)}><span>↑</span></button>
-                <button type="button" className="filter-btn" onClick={() => move(i, 1)}><span>↓</span></button>
-              </div>
-            ))}
-          </div>
-        ), 'Official rulebook §13 order: GD → GF → head-to-head → fair play → organiser.')}
-        {row('STAGE DURATIONS (MINUTES)', (
-          <div className="grid-3" style={{ gap: '0.5rem' }}>
-            {Object.entries(f.stage_rules).map(([stage, r]) => (
-              <div key={stage} style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', fontSize: '0.8rem' }}>
-                <span style={{ minWidth: 80 }}>{stage}</span>
-                <input className="form-input" style={{ width: 56 }} value={r.normal} onChange={(e) => setF({ ...f, stage_rules: { ...f.stage_rules, [stage]: { ...r, normal: Number(e.target.value.replace(/\D/g, '') || 0) } } })} />
-                <span>+ max</span>
-                <input className="form-input" style={{ width: 56 }} value={r.max_added} onChange={(e) => setF({ ...f, stage_rules: { ...f.stage_rules, [stage]: { ...r, max_added: Number(e.target.value.replace(/\D/g, '') || 0) } } })} />
-              </div>
-            ))}
-          </div>
-        ))}
-        <button type="button" className="btn-skew btn-lime" style={{ justifySelf: 'start' }} disabled={busy} onClick={save}><span>SAVE SETTINGS</span></button>
+      <div className="ws-card lime-bottom set-card">
+        {section('Public site', <>
+          {row('Site mode', <select className="form-select" value={f.site_mode} onChange={(e) => setF({ ...f, site_mode: e.target.value as typeof f.site_mode })}><option value="pre">Pre-tournament</option><option value="live">Live</option><option value="completed">Completed</option></select>, 'The countdown shows until the first kick-off. “Completed” reveals champions and awards.')}
+          {row('Registration', <select className="form-select" value={String(f.registration_open)} onChange={(e) => setF({ ...f, registration_open: e.target.value === 'true' })}><option value="false">Closed</option><option value="true">Open</option></select>, 'Open = the public can submit a team (never auto-confirmed).')}
+          {row('Announcement banner (English)', <input className="form-input" value={f.banner_en} onChange={(e) => setF({ ...f, banner_en: e.target.value })} placeholder="Empty = no banner" />, 'Shown at the top of every public page.')}
+          {row('Announcement banner (বাংলা)', <input className="form-input bn" lang="bn" value={f.banner_bn} onChange={(e) => setF({ ...f, banner_bn: e.target.value })} placeholder="Empty = no banner" />)}
+        </>)}
+        {section('Match rules', <>
+          {row('Knockout tie resolution', <select className="form-select" value={f.knockout_tie_resolution} onChange={(e) => setF({ ...f, knockout_tie_resolution: e.target.value })}><option value="penalties">Penalty shootout (§14)</option><option value="organizer">Organiser decision</option></select>, 'How a drawn semifinal or final is decided.')}
+          {row('Third-place match', <select className="form-select" value={String(f.third_place_enabled)} onChange={(e) => setF({ ...f, third_place_enabled: e.target.value === 'true' })}><option value="false">Off</option><option value="true">On</option></select>)}
+          {row('Walkover score', <input className="form-input set-num" inputMode="numeric" value={f.walkover_goals} onChange={(e) => setF({ ...f, walkover_goals: Number(e.target.value.replace(/\D/g, '') || 0) })} />, 'Goals awarded to the team that turned up. No player gets credit.')}
+          {row('Stage durations', (
+            <div className="set-stages">
+              {Object.entries(f.stage_rules).map(([stage, r]) => (
+                <div key={stage} className="set-stage">
+                  <span className="set-stage-name">{stage.replace('_', ' ')}</span>
+                  <input className="form-input set-num" aria-label={`${stage} minutes`} value={r.normal} onChange={(e) => setF({ ...f, stage_rules: { ...f.stage_rules, [stage]: { ...r, normal: Number(e.target.value.replace(/\D/g, '') || 0) } } })} />
+                  <span className="set-unit">min + up to</span>
+                  <input className="form-input set-num" aria-label={`${stage} max added minutes`} value={r.max_added} onChange={(e) => setF({ ...f, stage_rules: { ...f.stage_rules, [stage]: { ...r, max_added: Number(e.target.value.replace(/\D/g, '') || 0) } } })} />
+                  <span className="set-unit">added</span>
+                </div>
+              ))}
+            </div>
+          ), 'Playing time and the maximum added time per stage (minutes).')}
+        </>)}
+        {section('Standings & discipline', <>
+          {row('Tie-break order (after points)', (
+            <div className="set-tb">
+              {f.tiebreak_order.map((k, i) => (
+                <div key={k} className="set-tb-row">
+                  <span className="set-tb-n">{i + 1}</span><span style={{ flex: 1 }}>{TB[k] ?? k}</span>
+                  <button type="button" className="ev-btn" aria-label={`Move ${TB[k] ?? k} up`} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
+                  <button type="button" className="ev-btn" aria-label={`Move ${TB[k] ?? k} down`} disabled={i === f.tiebreak_order.length - 1} onClick={() => move(i, 1)}>↓</button>
+                </div>
+              ))}
+            </div>
+          ), 'Rulebook §13 order: goal difference → goals scored → head-to-head → fair play → organiser.')}
+          {row('Second-yellow fair-play points', <input className="form-input set-num" inputMode="numeric" value={f.second_yellow_points} onChange={(e) => setF({ ...f, second_yellow_points: Number(e.target.value.replace(/\D/g, '') || 0) })} />, 'Added to the first yellow (1). Default 2 → 3 in total, the same as a red. Never double counted.')}
+        </>)}
+        {section('Players & ratings', <>
+          {row('Max eligible age', <input className="form-input set-num" inputMode="numeric" value={f.max_eligible_age} onChange={(e) => setF({ ...f, max_eligible_age: Number(e.target.value.replace(/\D/g, '') || 0) })} />, `Players aged ${f.max_eligible_age} or under are eligible; older players are flagged “over-age” in admin.`)}
+          {row('Ratings published by default', <select className="form-select" value={String(f.ratings_published_default)} onChange={(e) => setF({ ...f, ratings_published_default: e.target.value === 'true' })}><option value="false">No — reveal per match</option><option value="true">Yes</option></select>, 'New matches start with ratings public or hidden.')}
+          {row('Top-rated minimum', <input className="form-input set-num" inputMode="numeric" value={f.rating_min_matches} onChange={(e) => setF({ ...f, rating_min_matches: Number(e.target.value.replace(/\D/g, '') || 0) })} />, 'Rated matches a player needs to appear in the public “Top rated” list.')}
+        </>)}
+        <div className="set-save"><button type="button" className="btn-skew btn-lime" disabled={busy} onClick={save}><span>{busy ? 'SAVING…' : 'SAVE SETTINGS'}</span></button></div>
       </div>
       <ClearAll />
       <div className="ws-card" style={{ marginTop: '1rem' }}>
