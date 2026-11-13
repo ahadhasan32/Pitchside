@@ -1725,3 +1725,5 @@ html, body { overflow-x: clip; }
 @media (max-width: 560px) { .fx-carousel { grid-template-columns: 1fr; } .fx-arrow { display: none; } .fx-nav-mobile { display: flex !important; } }
 .fx-nav-mobile { display: none; justify-content: center; gap: .8rem; margin-top: .4rem; }
 .fx-nav-mobile .fx-arrow { display: inline-block; }
+.modal-panel { text-align: left; max-height: calc(100dvh - 1.5rem); overflow-y: auto; clip-path: none; }
+.modal-backdrop.open { display: flex; }

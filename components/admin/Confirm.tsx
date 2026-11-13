@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 
 type Ask = { title: string; body: React.ReactNode; confirmLabel?: string; danger?: boolean; resolve: (ok: boolean) => void };
 let push: ((a: Ask) => void) | null = null;
@@ -14,7 +15,7 @@ export function ConfirmHost() {
   push = setAsk;
   if (!ask) return null;
   const close = (ok: boolean) => { ask.resolve(ok); setAsk(null); };
-  return (
+  return createPortal(
     <div className="modal-backdrop open" style={{ display: 'flex' }} role="dialog" aria-modal="true">
       <div className="modal-panel" style={{ maxWidth: 460 }}>
         <div className="modal-header"><div className="modal-title">⚠️ {ask.title}</div><button type="button" className="close-btn" onClick={() => close(false)}>×</button></div>
@@ -24,6 +25,7 @@ export function ConfirmHost() {
           <button type="button" className={`btn-skew ${ask.danger ? 'btn-danger-outline' : 'btn-lime'}`} onClick={() => close(true)} autoFocus><span>{ask.confirmLabel ?? 'CONFIRM'}</span></button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

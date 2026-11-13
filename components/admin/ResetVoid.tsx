@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSnap } from '@/components/public/LiveProvider';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { useAdmin } from './AdminContext';
@@ -81,7 +82,7 @@ export function ResetVoidControls({ m, autoOpen = false }: { m: Match; autoOpen?
           onClick={() => run(() => sb.rpc('admin_match_restore', { p_match: m.id }), `${m.code} restored`)}><span>⟲ RESTORE MATCH</span></button>
       )}
 
-      {open && (
+      {open && typeof document !== 'undefined' && createPortal(
         <div className="modal-backdrop open" style={{ display: 'flex' }} role="dialog" aria-modal="true">
           <div className="modal-panel" style={{ maxWidth: 520 }}>
             <div className="modal-header">
@@ -136,7 +137,8 @@ export function ResetVoidControls({ m, autoOpen = false }: { m: Match; autoOpen?
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

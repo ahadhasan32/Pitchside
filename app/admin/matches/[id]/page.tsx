@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { use, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSnap } from '@/components/public/LiveProvider';
 import { useAdmin } from '@/components/admin/AdminContext';
 import { confirmDialog } from '@/components/admin/Confirm';
@@ -184,7 +185,7 @@ export default function MatchControl({ params, searchParams }: { params: Promise
       {isScorer && home && away && <RatingsPanel m={m} home={home} away={away} roster={roster} patch={patch} busy={busy} />}
       {isScorer && home && away && <LineupPanel m={m} teams={[home, away]} roster={roster} />}
 
-      {draft && (
+      {draft && typeof document !== 'undefined' && createPortal(
         <div className="modal-backdrop open" style={{ display: 'flex' }} role="dialog" aria-modal="true">
           <div className="modal-panel" style={{ maxWidth: 520 }}>
             <div className="modal-header">
@@ -248,7 +249,8 @@ export default function MatchControl({ params, searchParams }: { params: Promise
               <button type="button" className="btn-skew btn-lime" onClick={saveDraft} disabled={busy || !draft.player} style={{ minHeight: 44 }}><span>{busy ? 'SAVING…' : 'SAVE'}</span></button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
